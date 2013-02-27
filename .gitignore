@@ -1,0 +1,8 @@
+*.xml~
+*.class
+
+# Package Files #
+
+target
+
+src/test/resources/tmp
