@@ -1,15 +1,11 @@
 package org.neuroml.importer;
 
 
-import java.io.File;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
-import org.lemsml.jlems.type.Dimension;
-import org.neuroml.model.IzhikevichCell;
-import org.neuroml.model.NeuroMLDocument;
 
 /**
  * Unit test for simple App.

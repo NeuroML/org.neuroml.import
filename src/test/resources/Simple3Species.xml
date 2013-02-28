@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<sbml xmlns="http://www.sbml.org/sbml/level2/version2"
+      level="2"
+      version="2"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.sbml.org/sbml/level2/version2   http://sbml.org/Special/xml-schemas/sbml-l2v2-schema/sbml.xsd">
+
+<model id="Simple3Species" name="Simple3Species">
+    
+<notes>
+    <body xmlns="http://www.w3.org/1999/xhtml">
+        <p>A simple example in SBML with 3 states and 2 reactions between them</p>
+    </body>
+</notes>
+
+<listOfCompartments>
+    <compartment id="defComp" size="1"/>
+</listOfCompartments>
+
+<listOfSpecies>
+    <species id="s1" name="s1" compartment="defComp" initialAmount="10" charge="0"/>
+    <species id="s2" name="s2" compartment="defComp" initialAmount="0"/>
+    <species id="s3" name="s3" compartment="defComp" initialAmount="5" charge="0"/>
+</listOfSpecies>
+
+<listOfParameters>
+    <parameter id="s2_squared" value="0" constant="false"/>
+</listOfParameters>
+
+<listOfRules>
+
+<assignmentRule variable="s2_squared">
+    <math xmlns="http://www.w3.org/1998/Math/MathML">
+        <apply>
+            <times/>
+            <ci> s2 </ci>
+            <ci> s2 </ci>
+        </apply>
+    </math>
+</assignmentRule>
+
+</listOfRules>
+
+<listOfReactions>
+    <reaction id="re1" reversible="false" fast="false">
+
+        <listOfReactants>
+            <speciesReference species="s1"/>
+        </listOfReactants>
+
+        <listOfProducts>
+            <speciesReference species="s2"/>
+        </listOfProducts>
+
+        <kineticLaw>
+            <math xmlns="http://www.w3.org/1998/Math/MathML">
+                <apply>
+                    <times/>
+                    <ci> s1 </ci>
+                    <ci> k1 </ci>
+                </apply>
+          </math>
+            <listOfParameters>
+                <parameter id="k1" name="k1" value="2"/>
+            </listOfParameters>
+        </kineticLaw>
+
+    </reaction>
+
+<reaction id="re3" reversible="false" fast="false">
+
+    <listOfReactants>
+        <speciesReference species="s2"  stoichiometry="1"/>
+    </listOfReactants>
+
+    <listOfProducts>
+        <speciesReference species="s3"/>
+    </listOfProducts>
+
+    <kineticLaw>
+        <math xmlns="http://www.w3.org/1998/Math/MathML">
+            <apply>
+                <divide/>
+                <apply>
+                    <times/>
+                    <ci> v1 </ci>
+                    <ci> s2 </ci>
+                </apply>
+                <apply>
+                    <plus/>
+                    <ci> k2 </ci>
+                    <ci> s2 </ci>
+                </apply>
+            </apply>
+        </math>
+
+        <listOfParameters>
+            <parameter id="v1" name="v1" value="3"/>
+            <parameter id="k2" name="k2" value="1"/>
+        </listOfParameters>
+
+    </kineticLaw>
+</reaction>
+
+</listOfReactions>
+
+</model>
+</sbml>
