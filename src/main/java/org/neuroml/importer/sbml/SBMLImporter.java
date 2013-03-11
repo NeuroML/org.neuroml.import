@@ -3,10 +3,26 @@ package org.neuroml.importer.sbml;
 
 
 import java.awt.Color;
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import javax.xml.stream.XMLStreamException;
+
+import org.lemsml.jlems.core.expression.ParseError;
+import org.lemsml.jlems.core.logging.E;
+import org.lemsml.jlems.core.sim.ContentError;
+import org.lemsml.jlems.core.type.BuildException;
+import org.lemsml.jlems.core.type.Component;
+import org.lemsml.jlems.core.type.ComponentType;
+import org.lemsml.jlems.core.type.Constant;
+import org.lemsml.jlems.core.type.Dimension;
+import org.lemsml.jlems.core.type.Exposure;
+import org.lemsml.jlems.core.type.Lems;
+import org.lemsml.jlems.core.type.Target;
 import org.lemsml.jlems.core.type.dynamics.DerivedVariable;
 import org.lemsml.jlems.core.type.dynamics.Dynamics;
 import org.lemsml.jlems.core.type.dynamics.OnCondition;
@@ -14,32 +30,31 @@ import org.lemsml.jlems.core.type.dynamics.OnStart;
 import org.lemsml.jlems.core.type.dynamics.StateAssignment;
 import org.lemsml.jlems.core.type.dynamics.StateVariable;
 import org.lemsml.jlems.core.type.dynamics.TimeDerivative;
-import org.lemsml.jlems.core.type.BuildException;
-import org.lemsml.jlems.core.type.Component;
-import org.lemsml.jlems.core.type.ComponentType;
-import org.lemsml.jlems.core.type.Constant;
-import org.lemsml.jlems.core.type.Target;
-import org.lemsml.jlems.core.type.Dimension;
-import org.lemsml.jlems.core.type.Exposure;
-import org.lemsml.jlems.core.type.Lems;
-import org.lemsml.jlems.core.sim.ContentError;
-import org.lemsml.jlems.core.util.StringUtil;
 import org.lemsml.jlems.core.xml.XMLException;
-import org.lemsml.jlems.core.sim.LemsProcess;
-import org.lemsml.jlems.core.sim.Sim;
-
-import org.lemsml.jlems.core.expression.ParseError;
-import org.lemsml.jlems.core.logging.E;
 import org.lemsml.jlems.io.util.FileUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
 import org.lemsml.jlems.viz.plot.ColorUtil;
 import org.neuroml.export.Utils;
-
-import javax.xml.stream.*;
-
+import org.sbml.jsbml.ASTNode;
+import org.sbml.jsbml.AssignmentRule;
+import org.sbml.jsbml.Compartment;
+import org.sbml.jsbml.Event;
+import org.sbml.jsbml.EventAssignment;
+import org.sbml.jsbml.FunctionDefinition;
+import org.sbml.jsbml.JSBML;
+import org.sbml.jsbml.KineticLaw;
+import org.sbml.jsbml.LocalParameter;
+import org.sbml.jsbml.Model;
+import org.sbml.jsbml.Parameter;
+import org.sbml.jsbml.RateRule;
+import org.sbml.jsbml.Reaction;
+import org.sbml.jsbml.Rule;
+import org.sbml.jsbml.SBMLDocument;
+import org.sbml.jsbml.SBMLException;
+import org.sbml.jsbml.SBMLReader;
+import org.sbml.jsbml.Species;
+import org.sbml.jsbml.SpeciesReference;
 import org.sbml.jsbml.text.parser.ParseException;
-import org.sbml.jsbml.*;
-import org.sbml.jsbml.text.parser.*;
 
 public class SBMLImporter  {
 
@@ -227,9 +242,9 @@ public class SBMLImporter  {
             KineticLaw kl = reaction.getKineticLaw();
             HashMap<String, String> toReplace = new HashMap<String, String>();
 
-            for(LocalParameter p: reaction.getKineticLaw().getListOfParameters()) {
+            for(LocalParameter p: reaction.getKineticLaw().getListOfLocalParameters()) {
                 //org.neuroml.lems.type.Lems
-                String localName = p.getId()+"_"+Math.abs(rid.hashCode());
+                String localName = p.getId()+"_"+reaction.getId();
                 toReplace.put(p.getId(), localName);
                 E.info("Adding: "+localName);
                 Dimension paramDim = noDim;
@@ -337,6 +352,11 @@ public class SBMLImporter  {
             disp1.setParameter("ymax", "-10");
 
             sim1.addToChildren("displays", disp1);
+            
+            Component outF = new Component("outputFile1", lems.getComponentTypeByName("OutputFile"));
+            outF.setParameter("fileName", model.getId()+".dat");
+
+            sim1.addToChildren("outputs", outF);
 
             int count = 1;
 
@@ -354,6 +374,11 @@ public class SBMLImporter  {
                     lineCpt.setParameter("timeScale", "1s");
 
                     disp1.addToChildren("lines", lineCpt);
+
+                    Component outputColumn = new Component("o_"+p.getId(), lems.getComponentTypeByName("OutputColumn"));
+                    outputColumn.setParameter("quantity", p.getId());
+                    outF.addToChildren("outputColumn", outputColumn);
+                    
                     count++;
                 }
             }
@@ -371,6 +396,11 @@ public class SBMLImporter  {
                     lineCpt.setParameter("timeScale", "1s");
 
                     disp1.addToChildren("lines", lineCpt);
+
+                    Component outputColumn = new Component("o_"+s.getId(), lems.getComponentTypeByName("OutputColumn"));
+                    outputColumn.setParameter("quantity", s.getId());
+                    outF.addToChildren("outputColumn", outputColumn);
+                    
                     count++;
             }
 
@@ -439,7 +469,7 @@ public class SBMLImporter  {
         //E.info("Created: \n"+lemsString);
         //E.info("Info: \n"+lems.textSummary());
 
-        File testFile = new File(sbmlFile.getName().replaceAll(".xml", "")+"_SBML.xml");
+        File testFile = new File(sbmlFile.getParent(), sbmlFile.getName().replaceAll(".xml", "")+"_SBML.xml");
 
         FileUtil.writeStringToFile(lemsString, testFile);
 
@@ -448,6 +478,7 @@ public class SBMLImporter  {
         E.info("Loading LEMS file from: "+ testFile.getAbsolutePath());
 
 		Lems lems2 = Utils.loadLemsFile(testFile);
+        lems2.resolve();
 		
 		
  
@@ -475,7 +506,9 @@ public class SBMLImporter  {
         
         sbmlFile = new File(srcDir+"/BIOMD0000000184.xml");
         
-        File sbmlFileDir = new File("exportImportUtils/SBML/sbmlTestSuite/cases/semantic/");
+        sbmlFile = new File(srcDir+"/Simple3Species.xml");
+        
+        File sbmlFileDir = new File(srcDir+"hhh/sbmlTestSuite/cases/semantic/");
             if (sbmlFileDir.exists()){
             sbmlFile = sbmlFileDir;
         }
@@ -489,7 +522,7 @@ public class SBMLImporter  {
         if (sbmlFile.getName().indexOf("0039")>=0) len = 50;
         if (sbmlFile.getName().indexOf("00118")>=0) len = 50;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
-        float dt = (float)(len/100000.0);
+        float dt = (float)(len/20000.0);
 
         HashMap<Integer, String> problematic = new HashMap<Integer, String>();
         //////problematic.put(21, "Incorrectly reads component size when units=volume ");
@@ -511,8 +544,8 @@ public class SBMLImporter  {
 
             //int numToRun = 200;
             int numToStart = 1;
-            int numToStop = 100;
-            numToStop = 980;
+            int numToStop = 4;
+            //numToStop = 980;
             boolean exitOnError = false;
             boolean exitOnMismatch = false;
             String version = "l2v4";
@@ -527,7 +560,7 @@ public class SBMLImporter  {
                     while(testCase.length()<5) testCase ="0"+testCase;
 
 
-                    sbmlFile = new File("exportImportUtils/SBML/sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
+                    sbmlFile = new File(srcDir+"/sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
                     if (!sbmlFile.exists()){
                         System.out.println("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
                         notFound++;
@@ -539,7 +572,7 @@ public class SBMLImporter  {
                         String info = FileUtil.readStringFromFile(propsFile);
                         String duration = info.substring(info.indexOf("duration: ")+9, info.indexOf("steps:")-1).trim();
                         len = Float.parseFloat(duration);
-                        dt = (float)(len/50000.0);
+                        dt = (float)(len/5000.0);
 
 
                         System.out.println("\n\n---------------------------------\n\nSBML test: "+testCase+" going to be run!");

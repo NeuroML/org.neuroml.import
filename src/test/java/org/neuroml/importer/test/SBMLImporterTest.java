@@ -27,11 +27,17 @@ public class SBMLImporterTest extends TestCase {
     if (sbmlFile.getName().indexOf("0039")>=0) len = 50;
     if (sbmlFile.getName().indexOf("00118")>=0) len = 50;
     if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;*/
-    
+
+	public void testSimple()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+
+        File sbmlFile = new File(exampleSrcDir+"/Simple3Species.xml");
+        convertSBMLtoLEMSFile(sbmlFile, 8);
+	}
+	
 	public void testIzhikevich()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
 
         File sbmlFile = new File(exampleSrcDir+"/Izhikevich.xml");
-        convertSBMLtoLEMSFile(sbmlFile, 140);
+        convertSBMLtoLEMSFile(sbmlFile, 150);
 	}
 
 	public void testBio39()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {

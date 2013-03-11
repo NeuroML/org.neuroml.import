@@ -6,5 +6,5 @@
 # Package Files #
 
 target
-
+src/test/resources/sbmlTestSuite/
 src/test/resources/tmp
