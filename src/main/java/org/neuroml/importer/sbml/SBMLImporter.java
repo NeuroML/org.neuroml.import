@@ -66,6 +66,10 @@ public class SBMLImporter  {
     public static String tscaleName = "tscale";
 
     public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
+    	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
+    }
+
+    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
 
         SBMLReader sr = new SBMLReader();
 
@@ -354,7 +358,12 @@ public class SBMLImporter  {
             sim1.addToChildren("displays", disp1);
             
             Component outF = new Component("outputFile1", lems.getComponentTypeByName("OutputFile"));
-            outF.setParameter("fileName", model.getId()+".dat");
+            String prefix = "";
+            if (dirForResults!=null)
+            {
+            	prefix = dirForResults.getAbsolutePath()+ System.getProperty("file.separator");
+            }
+            outF.setParameter("fileName", prefix+model.getId()+".dat");
 
             sim1.addToChildren("outputs", outF);
 
@@ -462,7 +471,7 @@ public class SBMLImporter  {
 
     private static void runTest(File sbmlFile, float simDuration, float simDt, boolean showFrame) throws Exception
     {
-        Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt);
+        Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
     
