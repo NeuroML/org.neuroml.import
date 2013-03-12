@@ -79,6 +79,7 @@ public class SBMLImporterTest extends TestCase {
         E.info("Loading LEMS file from: "+ testFile.getAbsolutePath());
 
 		Lems lems2 = Utils.loadLemsFile(testFile);
+		lems2.resolve();
 	}
 		
 		
