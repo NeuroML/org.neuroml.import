@@ -10,3 +10,5 @@ src/test/resources/sbmlTestSuite/
 src/test/resources/*.dat
 src/test/resources/*.ode
 src/test/resources/tmp
+
+Errors.txt

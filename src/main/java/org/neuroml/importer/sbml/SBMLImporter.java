@@ -563,8 +563,8 @@ public class SBMLImporter  {
             int notFound = 0;
 
             int numToStart = 1;
-            int numToStop = 1;
-            //numToStop = 1123;
+            int numToStop = 90;
+            numToStop = 1123;
 
             if ((numToStop-numToStart)<=10)
         		SwingDataViewerFactory.initialize();
@@ -595,7 +595,7 @@ public class SBMLImporter  {
                         String info = FileUtil.readStringFromFile(propsFile);
                         String duration = info.substring(info.indexOf("duration: ")+9, info.indexOf("steps:")-1).trim();
                         len = Float.parseFloat(duration);
-                        dt = (float)(len/5000.0);
+                        dt = (float)(len/10000.0);
 
 
                         System.out.println("\n\n---------------------------------\n\nSBML test: "+testCase+" going to be run!");
@@ -679,8 +679,8 @@ public class SBMLImporter  {
                             	String[] words = line.split("\\s");
                             	for (int c=0;c<cols.size();c++){
     	                            float factor = 1;
-    	                            if (cols.get(c).equals("time"))
-    	                                factor = 1000f;
+    	                            //if (cols.get(c).equals("time"))
+    	                            //    factor = 1000f;
                             		data[c][lineNum] = Float.parseFloat(words[c])* factor;
                             	}
                             	lineNum++;
@@ -690,7 +690,7 @@ public class SBMLImporter  {
 
 
                             int ir = 0;
-                            boolean match = false;
+                            boolean match = true;
 
                             for (int it=0;it<timeTarg.length;it++){
                                 float tt = timeTarg[it];
@@ -700,7 +700,7 @@ public class SBMLImporter  {
                                     ir++;
                                     tr = data[0][ir];
                                 }
-                                E.info("------------ Testing target time point "+tt+" ("+it+" of "+timeTarg.length+") against sim data time point "+tr+" ("+ir+" of "+lines+")");
+                                //E.info("------------ Testing target time point "+tt+" ("+it+" of "+timeTarg.length+") against sim data time point "+tr+" ("+ir+" of "+lines+")");
 
 
                                 for(int c=0;c<cols.size();c++){
@@ -709,17 +709,17 @@ public class SBMLImporter  {
                                         float[] dataTarg = targets.get(dataName);
                                         float t = dataTarg[it];
                                         float r = data[c][ir];
-                                        E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
+                                        //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
                                         float rel = 0.01f;
                                         if (t!=0 && r!=0){
                                             float diff = Math.abs((t-r)/t);
                                             if (diff <=rel)
                                             {
-                                                E.info("--- Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
+                                                //E.info("---   Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
                                             }
                                             else
                                             {
-                                                E.info("---   Points don't match: Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+rel+", real diff: "+ diff);
+                                                E.info("---   Points DON'T match: Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+rel+", real diff: "+ diff);
                                                 match = false;
                                             }
                                         }
@@ -728,7 +728,6 @@ public class SBMLImporter  {
                             }
                             completed++;
 
-                            E.info("data: "+data[1][0]);
 
                             if (match)
                             {
