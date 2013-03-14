@@ -114,7 +114,10 @@ public class SBMLImporter  {
         for(Compartment c: model.getListOfCompartments()){
             Dimension compDim = noDim;
             String size = c.getSize()+"";
-            E.info("Adding: "+c+" (size = "+size+")");
+            if (!c.isSetSize())
+            	size="1";
+            
+            E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+")");
 
             if (c.isConstant()){
                 Constant constComp = new Constant(c.getId(), compDim, size);
@@ -123,11 +126,11 @@ public class SBMLImporter  {
                 Exposure ex = new Exposure(c.getId(), compDim);
                 ct.exposures.add(ex);
 
-                //StateVariable sv = new StateVariable(c.getId(), compDim, ex);
-                //b.stateVariables.add(sv);
+                StateVariable sv = new StateVariable(c.getId(), compDim, ex);
+                b.stateVariables.add(sv);
 
-                //StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+"");
-                //os.stateAssignments.add(sa);
+                StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+"");
+                os.stateAssignments.add(sa);
             }
 
 
@@ -335,10 +338,14 @@ public class SBMLImporter  {
             }
 
         }
-            System.out.println(">>>> "+rates);
+        
+        System.out.println(">>>> "+rates);
 
         for(String s: rates.keySet()){
-            TimeDerivative td = new TimeDerivative(s, rates.get(s).toString());
+        	Species sp = model.getSpecies(s);
+            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+rates.get(s).toString()+") / "+sp.getCompartment());
+
+            System.out.println(">>>> TimeDerivative "+td.getValueExpression());
             b.timeDerivatives.add(td);
         }
 
@@ -379,7 +386,7 @@ public class SBMLImporter  {
             for(Parameter p: model.getListOfParameters()) {
 
                 if (!p.isConstant()){
-                    Component lineCpt = new Component("l_"+p.getId(), lems.getComponentTypeByName("Line"));
+                    Component lineCpt = new Component("lp_"+p.getId(), lems.getComponentTypeByName("Line"));
                     lineCpt.setParameter("scale", "1");
                     lineCpt.setParameter("quantity", p.getId());
                     Color c = ColorUtil.getSequentialColour(count);
@@ -391,21 +398,43 @@ public class SBMLImporter  {
 
                     disp1.addToChildren("lines", lineCpt);
 
-                    Component outputColumn = new Component("o_"+p.getId(), lems.getComponentTypeByName("OutputColumn"));
+                    Component outputColumn = new Component("op_"+p.getId(), lems.getComponentTypeByName("OutputColumn"));
                     outputColumn.setParameter("quantity", p.getId());
                     outF.addToChildren("outputColumn", outputColumn);
                     
                     count++;
                 }
             }
-            
+
             for(Species s: model.getListOfSpecies()) {
 
-                    Component lineCpt = new Component("l_"+s.getId(), lems.getComponentTypeByName("Line"));
+                Component lineCpt = new Component("ls_"+s.getId(), lems.getComponentTypeByName("Line"));
+                lineCpt.setParameter("scale", "1");
+                lineCpt.setParameter("quantity", s.getId());
+                Color c = ColorUtil.getSequentialColour(count);
+                String rgb = Integer.toHexString(c.getRGB());
+                rgb = rgb.substring(2, rgb.length());
+
+                lineCpt.setParameter("color", "#"+rgb);
+                lineCpt.setParameter("timeScale", "1s");
+
+                disp1.addToChildren("lines", lineCpt);
+
+                Component outputColumn = new Component("os_"+s.getId(), lems.getComponentTypeByName("OutputColumn"));
+                outputColumn.setParameter("quantity", s.getId());
+                outF.addToChildren("outputColumn", outputColumn);
+                
+                count++;
+            }
+
+            for(Compartment c: model.getListOfCompartments()) {
+
+                if (!c.isConstant()){
+                    Component lineCpt = new Component("lc_"+c.getId(), lems.getComponentTypeByName("Line"));
                     lineCpt.setParameter("scale", "1");
-                    lineCpt.setParameter("quantity", s.getId());
-                    Color c = ColorUtil.getSequentialColour(count);
-                    String rgb = Integer.toHexString(c.getRGB());
+                    lineCpt.setParameter("quantity", c.getId());
+                    Color col = ColorUtil.getSequentialColour(count);
+                    String rgb = Integer.toHexString(col.getRGB());
                     rgb = rgb.substring(2, rgb.length());
 
                     lineCpt.setParameter("color", "#"+rgb);
@@ -413,11 +442,12 @@ public class SBMLImporter  {
 
                     disp1.addToChildren("lines", lineCpt);
 
-                    Component outputColumn = new Component("o_"+s.getId(), lems.getComponentTypeByName("OutputColumn"));
-                    outputColumn.setParameter("quantity", s.getId());
+                    Component outputColumn = new Component("oc_"+c.getId(), lems.getComponentTypeByName("OutputColumn"));
+                    outputColumn.setParameter("quantity", c.getId());
                     outF.addToChildren("outputColumn", outputColumn);
                     
                     count++;
+                }
             }
 
             if (addModel)
@@ -479,6 +509,9 @@ public class SBMLImporter  {
     private static void runTest(File sbmlFile, float simDuration, float simDt) throws Exception
     {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
+
+        //E.info("Generated: "+ lems.textSummary(true));
+        //E.info("Generated: "+ lems.getComponentTypeByName("case00053").summary());
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
 
@@ -562,9 +595,15 @@ public class SBMLImporter  {
             int failed = 0;
             int notFound = 0;
 
-            int numToStart = 1;
-            int numToStop = 90;
+            int numToStart = 50;
+            int numToStop = 51;
+            numToStart = 1;
+            numToStop = 100;
             numToStop = 1123;
+            //numToStop = 100;
+            
+            int numLemsPoints = 10000;
+            float tolerance = 0.01f;
 
             if ((numToStop-numToStart)<=10)
         		SwingDataViewerFactory.initialize();
@@ -658,6 +697,10 @@ public class SBMLImporter  {
 
                                 cols.add(s.getId());
                             }
+                            for(Compartment c: model.getListOfCompartments()) {
+                            	if (!c.isConstant())
+                            		cols.add(c.getId());
+                            }
 
                             E.info("Checking columns: "+cols+" in "+resultFile);
 
@@ -710,16 +753,15 @@ public class SBMLImporter  {
                                         float t = dataTarg[it];
                                         float r = data[c][ir];
                                         //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
-                                        float rel = 0.01f;
                                         if (t!=0 && r!=0){
                                             float diff = Math.abs((t-r)/t);
-                                            if (diff <=rel)
+                                            if (diff <=tolerance)
                                             {
                                                 //E.info("---   Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
                                             }
                                             else
                                             {
-                                                E.info("---   Points DON'T match: Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+rel+", real diff: "+ diff);
+                                                E.info("---   Points DON'T match: Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diff);
                                                 match = false;
                                             }
                                         }
@@ -758,10 +800,12 @@ public class SBMLImporter  {
             }
 
             E.info("\nAll finished!\n"
-                    + "  Number succcessful:   "+successful+" out of "+(successful+failed)+"\n"
+                    + "  Number successful:   "+successful+" out of "+(successful+failed)+"\n"
                     + "  Number completed:     "+completed+"\n"
                     + "  Number failed:        "+failed+"\n"
-                    + "  Number not found:     "+notFound);
+                    + "  Number not found:     "+notFound+"\n\n"
+                    + "  Number LEMS points:   "+numLemsPoints+"\n"
+                    + "  Tolerance:            "+tolerance);
 
             FileUtil.writeStringToFile(errors.toString(), new File("Errors.txt"));
         }
