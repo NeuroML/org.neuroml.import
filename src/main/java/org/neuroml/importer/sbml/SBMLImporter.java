@@ -312,11 +312,13 @@ public class SBMLImporter  {
                     if (rates.get(s)==null) rates.put(s, new StringBuilder("0"));
 
                     StringBuilder sb = rates.get(s);
-                    sb.append(" + "+formula+"");
 
                     if (product.getStoichiometry()!=1){
-                        sb.append(" * "+product.getStoichiometry()+"");
+                        sb.append(" + ("+formula+" * "+product.getStoichiometry()+")");
+                    } else {
+                        sb.append(" + "+formula+"");
                     }
+                    	
                 }
 
             }
@@ -330,6 +332,7 @@ public class SBMLImporter  {
 
                     StringBuilder sb = rates.get(s);
                     sb.append(" - "+formula+"");
+                    
                     if (reactant.getStoichiometry()!=1){
                         sb.append(" * "+reactant.getStoichiometry()+"");
                     }
@@ -382,7 +385,7 @@ public class SBMLImporter  {
             sim1.addToChildren("outputs", outF);
 
             int count = 1;
-
+            /*
             for(Parameter p: model.getListOfParameters()) {
 
                 if (!p.isConstant()){
@@ -404,7 +407,7 @@ public class SBMLImporter  {
                     
                     count++;
                 }
-            }
+            }*/
 
             for(Species s: model.getListOfSpecies()) {
 
@@ -594,13 +597,14 @@ public class SBMLImporter  {
             int completed = 0;
             int failed = 0;
             int notFound = 0;
+            int skipped = 0;
 
-            int numToStart = 50;
+            int numToStart = 1;
             int numToStop = 51;
-            numToStart = 1;
-            numToStop = 100;
+            //numToStart = 18;
+            numToStop = 200;
             numToStop = 1123;
-            //numToStop = 100;
+            //numToStop = 200;
             
             int numLemsPoints = 10000;
             float tolerance = 0.01f;
@@ -609,9 +613,11 @@ public class SBMLImporter  {
         		SwingDataViewerFactory.initialize();
         		
             boolean exitOnError = false;
+            //boolean exitOnMismatch = true;
             boolean exitOnMismatch = false;
-            String version = "l2v4";
-            //String version = "l3v1";
+            boolean skipFuncDefinitions = false;
+            //String version = "l2v4";
+            String version = "l3v1";
             
             for(int i=numToStart;i<=numToStop;i++){
 
@@ -688,99 +694,107 @@ public class SBMLImporter  {
                             SBMLDocument doc = sr.readSBML(sbmlFile);
 
                             Model model = doc.getModel();
-
-                            File resultFile = new File(sbmlFile.getParentFile(), "case"+testCase+".dat");
-                            ArrayList<String> cols = new ArrayList<String>();
-                            cols.add("time");
-
-                            for(Species s: model.getListOfSpecies()) {
-
-                                cols.add(s.getId());
-                            }
-                            for(Compartment c: model.getListOfCompartments()) {
-                            	if (!c.isConstant())
-                            		cols.add(c.getId());
-                            }
-
-                            E.info("Checking columns: "+cols+" in "+resultFile);
-
-                            reader.close();
-                            reader = new BufferedReader(new FileReader(resultFile));
-
-                            int lines = 0;
-                            while ((line=reader.readLine()) != null) {
-                            	lines++;
-                            }
                             
-                            float[][] data = new float[cols.size()][lines];
-                            
-                            int lineNum = 0;
-                            reader.close();
-                            reader = new BufferedReader(new FileReader(resultFile));
-                            
-                            while ((line=reader.readLine()) != null) {
-                            	String[] words = line.split("\\s");
-                            	for (int c=0;c<cols.size();c++){
-    	                            float factor = 1;
-    	                            //if (cols.get(c).equals("time"))
-    	                            //    factor = 1000f;
-                            		data[c][lineNum] = Float.parseFloat(words[c])* factor;
-                            	}
-                            	lineNum++;
-                            }
+                            if (model.getListOfFunctionDefinitions().size()>0 && skipFuncDefinitions) {
+                            	String infoMessage = "Skipping: "+testCase+" due to function definitions";
+	                            E.info(infoMessage);
+	                            errors.append(testCase+": "+ infoMessage+"\n");
+	                            skipped++;
+                            } else {
 
-                            float[] timeTarg = targets.get("time");
-
-
-                            int ir = 0;
-                            boolean match = true;
-
-                            for (int it=0;it<timeTarg.length;it++){
-                                float tt = timeTarg[it];
-                                float tr = data[0][ir];
-
-                                while (tr < tt && ir<lines-1){
-                                    ir++;
-                                    tr = data[0][ir];
-                                }
-                                //E.info("------------ Testing target time point "+tt+" ("+it+" of "+timeTarg.length+") against sim data time point "+tr+" ("+ir+" of "+lines+")");
-
-
-                                for(int c=0;c<cols.size();c++){
-                                	String dataName = cols.get(c);
-                                    if(!dataName.equals("time")){
-                                        float[] dataTarg = targets.get(dataName);
-                                        float t = dataTarg[it];
-                                        float r = data[c][ir];
-                                        //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
-                                        if (t!=0 && r!=0){
-                                            float diff = Math.abs((t-r)/t);
-                                            if (diff <=tolerance)
-                                            {
-                                                //E.info("---   Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
-                                            }
-                                            else
-                                            {
-                                                E.info("---   Points DON'T match: Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diff);
-                                                match = false;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            completed++;
-
-
-                            if (match)
-                            {
-                                successful++;
-                                E.info("\n    Success of test: "+testCase+"!!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
-                            }
-                            else
-                            {
-                                E.info("Failure of test: "+testCase+"!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
-                                if (exitOnMismatch) System.exit(-1);
-                                failed++;
+	                            File resultFile = new File(sbmlFile.getParentFile(), "case"+testCase+".dat");
+	                            ArrayList<String> cols = new ArrayList<String>();
+	                            cols.add("time");
+	
+	                            for(Species s: model.getListOfSpecies()) {
+	
+	                                cols.add(s.getId());
+	                            }
+	                            for(Compartment c: model.getListOfCompartments()) {
+	                            	if (!c.isConstant())
+	                            		cols.add(c.getId());
+	                            }
+	
+	                            E.info("Checking columns: "+cols+" in "+resultFile);
+	
+	                            reader.close();
+	                            reader = new BufferedReader(new FileReader(resultFile));
+	
+	                            int lines = 0;
+	                            while ((line=reader.readLine()) != null) {
+	                            	lines++;
+	                            }
+	                            
+	                            float[][] data = new float[cols.size()][lines];
+	                            
+	                            int lineNum = 0;
+	                            reader.close();
+	                            reader = new BufferedReader(new FileReader(resultFile));
+	                            
+	                            while ((line=reader.readLine()) != null) {
+	                            	String[] words = line.split("\\s");
+	                            	for (int c=0;c<cols.size();c++){
+	    	                            float factor = 1;
+	    	                            //if (cols.get(c).equals("time"))
+	    	                            //    factor = 1000f;
+	                            		data[c][lineNum] = Float.parseFloat(words[c])* factor;
+	                            	}
+	                            	lineNum++;
+	                            }
+	
+	                            float[] timeTarg = targets.get("time");
+	
+	
+	                            int ir = 0;
+	                            boolean match = true;
+	
+	                            for (int it=0;it<timeTarg.length;it++){
+	                                float tt = timeTarg[it];
+	                                float tr = data[0][ir];
+	
+	                                while (tr < tt && ir<lines-1){
+	                                    ir++;
+	                                    tr = data[0][ir];
+	                                }
+	                                //E.info("------------ Testing target time point "+tt+" ("+it+" of "+timeTarg.length+") against sim data time point "+tr+" ("+ir+" of "+lines+")");
+	
+	
+	                                for(int c=0;c<cols.size();c++){
+	                                	String dataName = cols.get(c);
+	                                    if(!dataName.equals("time")){
+	                                        float[] dataTarg = targets.get(dataName);
+	                                        float t = dataTarg[it];
+	                                        float r = data[c][ir];
+	                                        //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
+	                                        if (t!=0 && r!=0){
+	                                            float diff = Math.abs((t-r)/t);
+	                                            if (diff <=tolerance)
+	                                            {
+	                                                //E.info("---   Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
+	                                            }
+	                                            else
+	                                            {
+	                                                E.info("---   Points DON'T match at time "+tt+": Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diff);
+	                                                match = false;
+	                                            }
+	                                        }
+	                                    }
+	                                }
+	                            }
+	                            completed++;
+	
+	
+	                            if (match)
+	                            {
+	                                successful++;
+	                                E.info("\n    Success of test: "+testCase+"!!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
+	                            }
+	                            else
+	                            {
+	                                E.info("Failure of test: "+testCase+"!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
+	                                if (exitOnMismatch) System.exit(-1);
+	                                failed++;
+	                            }
                             }
 
                             reader.close();
@@ -800,9 +814,10 @@ public class SBMLImporter  {
             }
 
             E.info("\nAll finished!\n"
-                    + "  Number successful:   "+successful+" out of "+(successful+failed)+"\n"
+                    + "  Number successful:   "+successful+" out of "+(successful+failed)+" ("+(float)successful / (successful+failed)+")\n"
                     + "  Number completed:     "+completed+"\n"
                     + "  Number failed:        "+failed+"\n"
+                    + "  Number skipped:       "+skipped+"\n"
                     + "  Number not found:     "+notFound+"\n\n"
                     + "  Number LEMS points:   "+numLemsPoints+"\n"
                     + "  Tolerance:            "+tolerance);
