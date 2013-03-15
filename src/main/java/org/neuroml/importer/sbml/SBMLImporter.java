@@ -313,7 +313,7 @@ public class SBMLImporter  {
 
                     StringBuilder sb = rates.get(s);
 
-                    if (product.getStoichiometry()!=1){
+                    if (product.isSetStoichiometry() && product.getStoichiometry()!=1){
                         sb.append(" + ("+formula+" * "+product.getStoichiometry()+")");
                     } else {
                         sb.append(" + "+formula+"");
@@ -333,7 +333,7 @@ public class SBMLImporter  {
                     StringBuilder sb = rates.get(s);
                     sb.append(" - "+formula+"");
                     
-                    if (reactant.getStoichiometry()!=1){
+                    if (reactant.isSetStoichiometry() && reactant.getStoichiometry()!=1){
                         sb.append(" * "+reactant.getStoichiometry()+"");
                     }
                 }
@@ -600,11 +600,11 @@ public class SBMLImporter  {
             int skipped = 0;
 
             int numToStart = 1;
-            int numToStop = 51;
+            int numToStop = 21;
             //numToStart = 18;
-            numToStop = 200;
-            numToStop = 1123;
             //numToStop = 200;
+            numToStop = 1123;
+            //numToStop = 500;
             
             int numLemsPoints = 10000;
             float tolerance = 0.01f;
@@ -616,6 +616,7 @@ public class SBMLImporter  {
             //boolean exitOnMismatch = true;
             boolean exitOnMismatch = false;
             boolean skipFuncDefinitions = false;
+            boolean skipUnitDefinitions = false;
             //String version = "l2v4";
             String version = "l3v1";
             
@@ -694,9 +695,16 @@ public class SBMLImporter  {
                             SBMLDocument doc = sr.readSBML(sbmlFile);
 
                             Model model = doc.getModel();
+
+                            E.info("Model: "+model.getListOfUnitDefinitions().size());
                             
                             if (model.getListOfFunctionDefinitions().size()>0 && skipFuncDefinitions) {
                             	String infoMessage = "Skipping: "+testCase+" due to function definitions";
+	                            E.info(infoMessage);
+	                            errors.append(testCase+": "+ infoMessage+"\n");
+	                            skipped++;
+                            } else if (model.getListOfUnitDefinitions().size()>0 && skipUnitDefinitions) {
+                            	String infoMessage = "Skipping: "+testCase+" due to unit definitions";
 	                            E.info(infoMessage);
 	                            errors.append(testCase+": "+ infoMessage+"\n");
 	                            skipped++;
@@ -814,7 +822,7 @@ public class SBMLImporter  {
             }
 
             E.info("\nAll finished!\n"
-                    + "  Number successful:   "+successful+" out of "+(successful+failed)+" ("+(float)successful / (successful+failed)+")\n"
+                    + "  Number successful:   "+successful+" out of "+(successful+failed)+" ("+(float)successful*100 / (successful+failed)+" %)\n"
                     + "  Number completed:     "+completed+"\n"
                     + "  Number failed:        "+failed+"\n"
                     + "  Number skipped:       "+skipped+"\n"
