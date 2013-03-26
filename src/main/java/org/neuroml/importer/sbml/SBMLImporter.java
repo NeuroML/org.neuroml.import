@@ -24,6 +24,7 @@ import org.lemsml.jlems.core.type.Dimension;
 import org.lemsml.jlems.core.type.Exposure;
 import org.lemsml.jlems.core.type.Lems;
 import org.lemsml.jlems.core.type.Target;
+import org.lemsml.jlems.core.type.Unit;
 import org.lemsml.jlems.core.type.dynamics.DerivedVariable;
 import org.lemsml.jlems.core.type.dynamics.Dynamics;
 import org.lemsml.jlems.core.type.dynamics.OnCondition;
@@ -58,11 +59,19 @@ import org.sbml.jsbml.SBMLException;
 import org.sbml.jsbml.SBMLReader;
 import org.sbml.jsbml.Species;
 import org.sbml.jsbml.SpeciesReference;
+import org.sbml.jsbml.UnitDefinition;
 import org.sbml.jsbml.text.parser.ParseException;
 
 public class SBMLImporter  {
 
+	static String DIM_SUFFIX = "_dimension";
+	static String UNIT_SUFFIX = "_unit";
+	static String INIT_PREFIX = "init_";
 
+	//static boolean useUnits = true;
+	static boolean useUnits = false;
+	
+	
     public SBMLImporter() {
         E.info("Created new SBMLImporter...");
     }
@@ -105,19 +114,68 @@ public class SBMLImporter  {
             lems.addComponent(comp);
 
         Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
+        Unit noUnit = new Unit(Unit.NO_UNIT, "", noDim);
 
         Dynamics b = new Dynamics();
         ct.dynamicses.add(b);
 
         OnStart os = new OnStart();
 
+        HashMap<String, Dimension> dims = new HashMap<String, Dimension>();
+        HashMap<String, org.lemsml.jlems.core.type.Unit> units = new HashMap<String, org.lemsml.jlems.core.type.Unit>();
+        
+        for(UnitDefinition ud: model.getListOfUnitDefinitions()){
+            Dimension newDim = new Dimension(ud.getId()+DIM_SUFFIX);
+            Unit newUnit = new Unit(ud.getId()+UNIT_SUFFIX, ud.getId()+UNIT_SUFFIX, newDim);
+            
+            for (org.sbml.jsbml.Unit u: ud.getListOfUnits()){
+            	String kind = u.getKind().getName().toLowerCase();
+            	if (kind.equals("ampere")) {
+            		newDim.setI(1);
+            	} else if (u.getKind().equals("farad")) {
+            		newDim.setM(-1);
+            		newDim.setL(-2);
+            		newDim.setT(4);
+            		newDim.setI(2);
+            	} else if (kind.equals("litre")) {
+            		newDim.setM(3);
+            		newUnit.setPower(-3);
+            	} else if (kind.equals("mole")) {
+            		newDim.setN(1);
+            	} else if (kind.equals("second")) {
+            		newDim.setT(1);
+            	} else {
+            		//TODO: Add all unit kinds from section 4.4.2 in SBML specs: http://sbml.org/Documents/Specifications
+            		System.err.print("Add more unit definitions! Missing: "+kind);
+            		if (useUnits)
+            			System.exit(1);
+            		
+            	}
+
+            }
+            lems.addDimension(newDim);
+            lems.addUnit(newUnit);
+
+            if (!useUnits) {
+            	newDim = noDim;
+            	newUnit = noUnit;
+            } 
+
+            dims.put(ud.getId(), newDim);
+            units.put(ud.getId(), newUnit);
+         
+        }
+
         for(Compartment c: model.getListOfCompartments()){
-            Dimension compDim = noDim;
+            Dimension compDim = dims.get(c.getUnits());
+            Unit compUnit = units.get(c.getUnits());
             String size = c.getSize()+"";
             if (!c.isSetSize())
             	size="1";
             
-            E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+")");
+            E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+", units = "+c.getUnits()+" ("+compDim+"))");
+            
+            size = size+" "+compUnit.getSymbol();
 
             if (c.isConstant()){
                 Constant constComp = new Constant(c.getId(), compDim, size);
@@ -129,7 +187,7 @@ public class SBMLImporter  {
                 StateVariable sv = new StateVariable(c.getId(), compDim, ex);
                 b.stateVariables.add(sv);
 
-                StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+"");
+                StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+" "+compUnit.getSymbol());
                 os.stateAssignments.add(sa);
             }
 
@@ -139,7 +197,9 @@ public class SBMLImporter  {
         for(Parameter p: model.getListOfParameters()) {
             //org.neuroml.lems.type.Lems
             E.info("Adding: "+p);
-            Dimension paramDim = noDim;
+            Dimension paramDim = dims.get(p.getUnits());
+            if (paramDim==null) 
+            	paramDim = noDim;
 
             if (!p.isConstant()) {
                 Exposure ex = new Exposure(p.getId(), paramDim);
@@ -172,14 +232,21 @@ public class SBMLImporter  {
 
 
         for(Species s: model.getListOfSpecies()) {
-            Dimension speciesDim = noDim;
+            Dimension speciesDim = dims.get(s.getSubstanceUnits());
+            Unit speciesUnit = units.get(s.getSubstanceUnits());
             Exposure ex = new Exposure(s.getId(), speciesDim);
             ct.exposures.add(ex);
             StateVariable sv = new StateVariable(s.getId(), speciesDim, ex);
             b.stateVariables.add(sv);
 
             if (s.isSetValue()){
-                StateAssignment sa = new StateAssignment(s.getId(), s.getValue()+"");
+
+            	//TODO: check the need for this!!
+            	String initConst = INIT_PREFIX+s.getId();
+                Constant constComp = new Constant(initConst, speciesDim, s.getValue()+" "+speciesUnit.getSymbol());
+                ct.constants.add(constComp);
+                
+                StateAssignment sa = new StateAssignment(s.getId(), initConst);
                 os.stateAssignments.add(sa);
                 E.info("Init sa: "+sa.getValueExpression());
             }
@@ -312,11 +379,13 @@ public class SBMLImporter  {
                     if (rates.get(s)==null) rates.put(s, new StringBuilder("0"));
 
                     StringBuilder sb = rates.get(s);
+                    String pre = " + ";
+                    if (false && sb.length()==0) pre = "";
 
                     if (product.isSetStoichiometry() && product.getStoichiometry()!=1){
-                        sb.append(" + ("+formula+" * "+product.getStoichiometry()+")");
+                        sb.append(pre+"("+formula+" * "+product.getStoichiometry()+")");
                     } else {
-                        sb.append(" + "+formula+"");
+                        sb.append(pre+formula+"");
                     }
                     	
                 }
@@ -331,7 +400,11 @@ public class SBMLImporter  {
                     if (rates.get(s)==null) rates.put(s, new StringBuilder("0"));
 
                     StringBuilder sb = rates.get(s);
-                    sb.append(" - "+formula+"");
+                    if (false && sb.length()==0) {
+                    	sb.append("-1*"+formula);
+                    } else {
+                    	sb.append(" - "+formula+"");
+                    }
                     
                     if (reactant.isSetStoichiometry() && reactant.getStoichiometry()!=1){
                         sb.append(" * "+reactant.getStoichiometry()+"");
@@ -368,8 +441,8 @@ public class SBMLImporter  {
 
             disp1.setParameter("xmin", "0");
             disp1.setParameter("xmax", simDuration+"");
-            disp1.setParameter("ymin", "10");
-            disp1.setParameter("ymax", "-10");
+            disp1.setParameter("ymin", "0.001");
+            disp1.setParameter("ymax", "0");
 
             sim1.addToChildren("displays", disp1);
             
@@ -601,17 +674,18 @@ public class SBMLImporter  {
 
             int numToStart = 1;
             int numToStop = 21;
-            //numToStart = 18;
+            //numToStart = 50;
             //numToStop = 200;
             numToStop = 1123;
-            //numToStop = 500;
+            numToStop = 100;
             
             int numLemsPoints = 10000;
             float tolerance = 0.01f;
 
             if ((numToStop-numToStart)<=10)
         		SwingDataViewerFactory.initialize();
-        		
+
+            //boolean exitOnError = true;
             boolean exitOnError = false;
             //boolean exitOnMismatch = true;
             boolean exitOnMismatch = false;
