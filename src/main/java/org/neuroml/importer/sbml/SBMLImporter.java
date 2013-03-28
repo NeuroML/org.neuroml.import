@@ -70,6 +70,9 @@ public class SBMLImporter  {
 
 	//static boolean useUnits = true;
 	static boolean useUnits = false;
+
+    static final Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
+    static final Unit noUnit = new Unit(Unit.NO_UNIT, "", noDim);
 	
 	
     public SBMLImporter() {
@@ -82,6 +85,18 @@ public class SBMLImporter  {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
     }
 
+    private static Unit getUnit(String unit, HashMap<String, org.lemsml.jlems.core.type.Unit> units) {
+    	if (unit==null || !units.containsKey(unit))
+    		return noUnit;
+    	return units.get(unit);
+    }
+    
+    private static Dimension getDim(String dim, HashMap<String, Dimension> dims) {
+    	if (dim==null || !dims.containsKey(dim))
+    		return noDim;
+    	return dims.get(dim);
+    }
+
     @SuppressWarnings("deprecation")
 	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
 
@@ -91,6 +106,10 @@ public class SBMLImporter  {
         SBMLDocument doc = sr.readSBML(sbmlFile);
 
         Model model = doc.getModel();
+        
+        HashMap<String, Dimension> dims = new HashMap<String, Dimension>();
+        HashMap<String, org.lemsml.jlems.core.type.Unit> units = new HashMap<String, org.lemsml.jlems.core.type.Unit>();
+
 
         E.info("Read in SBML from "+sbmlFile.getAbsolutePath());
 
@@ -113,16 +132,12 @@ public class SBMLImporter  {
         if (addModel)
             lems.addComponent(comp);
 
-        Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
-        Unit noUnit = new Unit(Unit.NO_UNIT, "", noDim);
 
         Dynamics b = new Dynamics();
         ct.dynamicses.add(b);
 
         OnStart os = new OnStart();
 
-        HashMap<String, Dimension> dims = new HashMap<String, Dimension>();
-        HashMap<String, org.lemsml.jlems.core.type.Unit> units = new HashMap<String, org.lemsml.jlems.core.type.Unit>();
         
         for(UnitDefinition ud: model.getListOfUnitDefinitions()){
             Dimension newDim = new Dimension(ud.getId()+DIM_SUFFIX);
@@ -167,8 +182,11 @@ public class SBMLImporter  {
         }
 
         for(Compartment c: model.getListOfCompartments()){
-            Dimension compDim = dims.get(c.getUnits());
-            Unit compUnit = units.get(c.getUnits());
+            Dimension compDim = getDim(c.getUnits(), dims);
+            
+            Unit compUnit = getUnit(c.getUnits(), units);
+  
+            
             String size = c.getSize()+"";
             if (!c.isSetSize())
             	size="1";
@@ -197,9 +215,7 @@ public class SBMLImporter  {
         for(Parameter p: model.getListOfParameters()) {
             //org.neuroml.lems.type.Lems
             E.info("Adding: "+p);
-            Dimension paramDim = dims.get(p.getUnits());
-            if (paramDim==null) 
-            	paramDim = noDim;
+            Dimension paramDim = getDim(p.getUnits(), dims);
 
             if (!p.isConstant()) {
                 Exposure ex = new Exposure(p.getId(), paramDim);
@@ -232,8 +248,9 @@ public class SBMLImporter  {
 
 
         for(Species s: model.getListOfSpecies()) {
-            Dimension speciesDim = dims.get(s.getSubstanceUnits());
-            Unit speciesUnit = units.get(s.getSubstanceUnits());
+            Dimension speciesDim = getDim(s.getSubstanceUnits(), dims);
+            Unit speciesUnit = getUnit(s.getSubstanceUnits(), units);
+            
             Exposure ex = new Exposure(s.getId(), speciesDim);
             ct.exposures.add(ex);
             StateVariable sv = new StateVariable(s.getId(), speciesDim, ex);
@@ -679,7 +696,7 @@ public class SBMLImporter  {
             numToStop = 1123;
             //numToStop = 100;
             
-            int numLemsPoints = 10000;
+            int numLemsPoints = 20000;
             float tolerance = 0.01f;
 
             if ((numToStop-numToStart)<=10)
