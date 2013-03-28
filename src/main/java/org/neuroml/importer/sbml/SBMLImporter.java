@@ -96,6 +96,20 @@ public class SBMLImporter  {
     		return noDim;
     	return dims.get(dim);
     }
+    
+
+    //TODO: update!!!
+    private static File getNeuroML2Dir() {
+    	String wdir = System.getProperty("user.dir");
+		File nml2Dir = new File(wdir + File.separator + "NeuroML2");
+        if (!nml2Dir.exists() || !nml2Dir.isDirectory())
+        {
+            //Temp hack...
+            String jnmlHome = System.getenv("JNML_HOME");
+            nml2Dir = new File(jnmlHome + File.separator +".." + File.separator + "NeuroML2");
+        }
+        return nml2Dir; 
+    }
 
     @SuppressWarnings("deprecation")
 	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
@@ -113,9 +127,7 @@ public class SBMLImporter  {
 
         E.info("Read in SBML from "+sbmlFile.getAbsolutePath());
 
-        //TODO: update!!!
-        File f = new File("../NeuroML2/NeuroML2CoreTypes/Simulation.xml");
-        //File f = new File("NeuroML2CoreTypes/Cells.xml");
+        File f = new File(getNeuroML2Dir()+"/NeuroML2CoreTypes/Simulation.xml");
 
         E.info("Loading LEMS file from: "+ f.getAbsolutePath());
 
@@ -689,12 +701,12 @@ public class SBMLImporter  {
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 1;
+            int numToStart = 21;
             int numToStop = 21;
             //numToStart = 50;
             //numToStop = 200;
-            numToStop = 1123;
-            //numToStop = 100;
+            //numToStop = 1123;
+            numToStop = 100;
             
             int numLemsPoints = 20000;
             float tolerance = 0.01f;
@@ -704,8 +716,8 @@ public class SBMLImporter  {
 
             //boolean exitOnError = true;
             boolean exitOnError = false;
-            //boolean exitOnMismatch = true;
-            boolean exitOnMismatch = false;
+            boolean exitOnMismatch = true;
+            //boolean exitOnMismatch = false;
             boolean skipFuncDefinitions = false;
             boolean skipUnitDefinitions = false;
             //String version = "l2v4";
