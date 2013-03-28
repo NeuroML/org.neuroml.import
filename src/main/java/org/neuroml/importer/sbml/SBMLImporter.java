@@ -677,7 +677,7 @@ public class SBMLImporter  {
             //numToStart = 50;
             //numToStop = 200;
             numToStop = 1123;
-            numToStop = 100;
+            //numToStop = 100;
             
             int numLemsPoints = 10000;
             float tolerance = 0.01f;
@@ -715,7 +715,7 @@ public class SBMLImporter  {
                         String info = FileUtil.readStringFromFile(propsFile);
                         String duration = info.substring(info.indexOf("duration: ")+9, info.indexOf("steps:")-1).trim();
                         len = Float.parseFloat(duration);
-                        dt = (float)(len/10000.0);
+                        dt = (float)(len/numLemsPoints);
 
 
                         System.out.println("\n\n---------------------------------\n\nSBML test: "+testCase+" going to be run!");
