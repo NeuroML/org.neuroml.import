@@ -16,6 +16,7 @@ import org.lemsml.jlems.io.util.FileUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
 import org.neuroml.export.Utils;
 import org.neuroml.importer.sbml.SBMLImporter;
+import org.sbml.jsbml.SBMLException;
 
 import junit.framework.TestCase;
 
@@ -28,37 +29,38 @@ public class SBMLImporterTest extends TestCase {
     if (sbmlFile.getName().indexOf("00118")>=0) len = 50;
     if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;*/
 
-	public void testSimple()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+	public void testSimple()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
         File sbmlFile = new File(exampleSrcDir+"/Simple3Species.xml");
         convertSBMLtoLEMSFile(sbmlFile, 8);
 	}
-	
-	public void testIzhikevich()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+
+	public void testIzhikevich()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
         File sbmlFile = new File(exampleSrcDir+"/Izhikevich.xml");
         convertSBMLtoLEMSFile(sbmlFile, 150);
 	}
 
-	public void testBio39()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+	public void testBio39()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000039.xml");
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}
 	
-	public void testBio118()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
-
-        File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000118.xml");
-        convertSBMLtoLEMSFile(sbmlFile, 50);
-	}
-	
-	public void testBio184()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+		
+	public void testBio184()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000184.xml");
         convertSBMLtoLEMSFile(sbmlFile, 1000);
 	}
+	/*
+	public void testBio118()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
-	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException {
+        File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000118.xml");
+        convertSBMLtoLEMSFile(sbmlFile, 50);
+	}*/
+
+	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
         System.out.println( "Converting "+sbmlFile.getAbsolutePath()+" from SBML to LEMS" );
         float dt = (float)(simDuration/10000.0);
@@ -70,7 +72,7 @@ public class SBMLImporterTest extends TestCase {
         //E.info("Created: \n"+lemsString);
         //E.info("Info: \n"+lems.textSummary());
 
-        File testFile = new File(sbmlFile.getParentFile(), sbmlFile.getName().replaceAll(".xml", "")+"_SBML.xml");
+        File testFile = new File(sbmlFile.getParentFile(), sbmlFile.getName().replaceAll(".xml", "")+"_LEMS.xml");
 
         FileUtil.writeStringToFile(lemsString, testFile);
 

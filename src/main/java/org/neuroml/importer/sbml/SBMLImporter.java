@@ -46,6 +46,7 @@ import org.sbml.jsbml.Compartment;
 import org.sbml.jsbml.Event;
 import org.sbml.jsbml.EventAssignment;
 import org.sbml.jsbml.FunctionDefinition;
+import org.sbml.jsbml.InitialAssignment;
 import org.sbml.jsbml.JSBML;
 import org.sbml.jsbml.KineticLaw;
 import org.sbml.jsbml.LocalParameter;
@@ -81,7 +82,7 @@ public class SBMLImporter  {
 
     public static String tscaleName = "tscale";
 
-    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
+    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
     }
 
@@ -112,7 +113,7 @@ public class SBMLImporter  {
     }
 
     @SuppressWarnings("deprecation")
-	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException {
+	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException {
 
     	E.setDebug(false);
         SBMLReader sr = new SBMLReader();
@@ -233,10 +234,11 @@ public class SBMLImporter  {
                 Exposure ex = new Exposure(p.getId(), paramDim);
                 ct.exposures.add(ex);
 
+                StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
+                b.stateVariables.add(sv);
+
                 if (p.isSetValue()){
 
-                    StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
-                    b.stateVariables.add(sv);
 
                     StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
                     os.stateAssignments.add(sa);
@@ -257,7 +259,9 @@ public class SBMLImporter  {
         }
 
         E.info("functions: "+functions);
-
+        
+        
+        HashMap<String, String> initVals = new HashMap<String, String>();
 
         for(Species s: model.getListOfSpecies()) {
             Dimension speciesDim = getDim(s.getSubstanceUnits(), dims);
@@ -272,14 +276,36 @@ public class SBMLImporter  {
 
             	//TODO: check the need for this!!
             	String initConst = INIT_PREFIX+s.getId();
+            	initVals.put(s.getId(), initConst);
                 Constant constComp = new Constant(initConst, speciesDim, s.getValue()+" "+speciesUnit.getSymbol());
                 ct.constants.add(constComp);
                 
                 StateAssignment sa = new StateAssignment(s.getId(), initConst);
+                
                 os.stateAssignments.add(sa);
                 E.info("Init sa: "+sa.getValueExpression());
             }
 
+        }
+        
+
+        for (InitialAssignment ia: model.getListOfInitialAssignments()) {
+        	String var = ia.getVariable();
+        	
+        	String formula = ia.getFormula();
+
+        	try {
+	        	formula = replaceFunctionDefinitions(formula, functions);
+	            formula = replaceInFormula(formula, initVals);
+	            
+	            
+	            StateAssignment sa = new StateAssignment(var, formula);
+	            os.stateAssignments.add(sa);
+	            E.info("InitialAssignment: "+var +" = "+sa.getValueExpression());
+        	} catch (Exception ex) {
+                throw new ContentError("Problem substituting function definitions in SBML", ex);
+            }
+        	
         }
 
         Constant timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
@@ -290,18 +316,13 @@ public class SBMLImporter  {
 
             String formula = r.getFormula();
             
-            try {
-                formula = replaceFunctionDefinitions(formula, functions);
-            }
-            catch (Exception ex) {
-                throw new ContentError("Problem substituting function definitions in SBML", ex);
-            }
+            formula = replaceFunctionDefinitions(formula, functions);
+   
 
             E.info("Adding rule: "+r);
 
             if (r.isRate()){
                 RateRule rr = (RateRule)r;
-
 
                 TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+formula +")");
                 b.timeDerivatives.add(td);
@@ -309,8 +330,30 @@ public class SBMLImporter  {
             if (r.isAssignment()){
                 Dimension speciesDim = noDim;
                 AssignmentRule ar = (AssignmentRule)r;
+                
                 DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
                 b.derivedVariables.add(dv);
+
+                formula = replaceInFormula(formula, initVals);
+                
+                StateAssignment sa = null;
+                //E.info("Sas: "+os.getStateAssignments());
+                if (os.getStateAssignments()!=null) {
+	                for (StateAssignment sa0: os.getStateAssignments()) {
+	                    //E.info("Sa: "+sa0);
+	                	if (sa0.getVariable().equals(ar.getVariable())) {
+		                    E.info("Replacing function for init: "+sa0.getVariable()+" = "+sa0.getValueExpression()
+		                    		+" with "+formula);
+	                		sa = sa0;
+	                	}
+	                }
+                }
+                if (sa==null) {
+                	sa = new StateAssignment(ar.getVariable());
+                	os.stateAssignments.add(sa);
+                }
+                
+                sa.setValue(formula);
 
                 //TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+ rr.getFormula()+")");
                 //b.timeDerivatives.add(td);
@@ -333,7 +376,6 @@ public class SBMLImporter  {
 
                     formula = replaceFunctionDefinitions(formula, functions);
 
-
                     StateAssignment sa = new StateAssignment(ea.getVariable(), formula);
                     oc.stateAssignments.add(sa);
                 }
@@ -349,12 +391,13 @@ public class SBMLImporter  {
 
         for (Reaction reaction: model.getListOfReactions()){
             KineticLaw kl = reaction.getKineticLaw();
-            HashMap<String, String> toReplace = new HashMap<String, String>();
+            HashMap<String, String> localParams = new HashMap<String, String>();
+            HashMap<String, String> speciesScales = new HashMap<String, String>();
 
             for(LocalParameter p: reaction.getKineticLaw().getListOfLocalParameters()) {
                 //org.neuroml.lems.type.Lems
                 String localName = p.getId()+"_"+reaction.getId();
-                toReplace.put(p.getId(), localName);
+                localParams.put(p.getId(), localName);
                 E.info("Adding: "+localName);
                 Dimension paramDim = noDim;
 
@@ -363,8 +406,14 @@ public class SBMLImporter  {
                 ct.parameters.add(lp);
                 comp.setParameter(localName, p.getValue()+"");
             }
+            
+            for (Species s: model.getListOfSpecies()) {
+
+            	speciesScales.put(s.getId(), "("+s.getId()+"/"+s.getCompartment()+")");
+            }
 
             String formula = "("+kl.getFormula()+")";
+            E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" ud "+kl.containsUndeclaredUnits());
 
             try{
                 formula = replaceFunctionDefinitions(formula, functions);
@@ -374,31 +423,10 @@ public class SBMLImporter  {
             }
             
             //
-            for(String old: toReplace.keySet()){
-                String new_ = toReplace.get(old);
-                String[] pres = new String[]{"\\(","\\+","-","\\*","/","\\^"};
-                String[] posts = new String[]{"\\)","\\+","-","\\*","/","\\^"};
-
-                for(String pre: pres){
-                    for(String post: posts){
-                        String o = pre+old+post;
-                        String n = pre+" "+new_+" "+post;
-                        formula = formula.replaceAll(o, n);
-                        //E.info("Replacing "+o+" with "+n+": "+formula);
-                    }
-                }
-                /*
-                //formula = formula.replaceAll("/("+old, "/( "+new_);
-                formula = formula.replaceAll("/+"+old, "+ "+new_);
-                formula = formula.replaceAll("-"+old, "- "+new_);
-                formula = formula.replaceAll("/*"+old, "* "+new_);
-                formula = formula.replaceAll("//"+old, "/ "+new_);
-                //formula = formula.replaceAll(new_+")", new_+" )");
-                formula = formula.replaceAll(new_+"+", new_+" +");
-                formula = formula.replaceAll(new_+"-", new_+" -");
-                formula = formula.replaceAll(new_+"/*", new_+" *");
-                formula = formula.replaceAll(new_+"//", new_+" /");*/
-            }
+            formula = replaceInFormula(formula, localParams);
+            formula = replaceInFormula(formula, speciesScales);
+        
+            E.info("formula now: "+formula);
 
             for (SpeciesReference product: reaction.getListOfProducts()){
                 String s = product.getSpecies();
@@ -448,7 +476,7 @@ public class SBMLImporter  {
 
         for(String s: rates.keySet()){
         	Species sp = model.getSpecies(s);
-            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+rates.get(s).toString()+") / "+sp.getCompartment());
+            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+rates.get(s).toString()+") ");
 
             System.out.println(">>>> TimeDerivative "+td.getValueExpression());
             b.timeDerivatives.add(td);
@@ -487,29 +515,7 @@ public class SBMLImporter  {
             sim1.addToChildren("outputs", outF);
 
             int count = 1;
-            /*
-            for(Parameter p: model.getListOfParameters()) {
-
-                if (!p.isConstant()){
-                    Component lineCpt = new Component("lp_"+p.getId(), lems.getComponentTypeByName("Line"));
-                    lineCpt.setParameter("scale", "1");
-                    lineCpt.setParameter("quantity", p.getId());
-                    Color c = ColorUtil.getSequentialColour(count);
-                    String rgb = Integer.toHexString(c.getRGB());
-                    rgb = rgb.substring(2, rgb.length());
-
-                    lineCpt.setParameter("color", "#"+rgb);
-                    lineCpt.setParameter("timeScale", "1s");
-
-                    disp1.addToChildren("lines", lineCpt);
-
-                    Component outputColumn = new Component("op_"+p.getId(), lems.getComponentTypeByName("OutputColumn"));
-                    outputColumn.setParameter("quantity", p.getId());
-                    outF.addToChildren("outputColumn", outputColumn);
-                    
-                    count++;
-                }
-            }*/
+            
 
             for(Species s: model.getListOfSpecies()) {
 
@@ -555,6 +561,29 @@ public class SBMLImporter  {
                 }
             }
 
+            for(Parameter p: model.getListOfParameters()) {
+
+                if (!p.isConstant()){
+                    Component lineCpt = new Component("lp_"+p.getId(), lems.getComponentTypeByName("Line"));
+                    lineCpt.setParameter("scale", "1");
+                    lineCpt.setParameter("quantity", p.getId());
+                    Color c = ColorUtil.getSequentialColour(count);
+                    String rgb = Integer.toHexString(c.getRGB());
+                    rgb = rgb.substring(2, rgb.length());
+
+                    lineCpt.setParameter("color", "#"+rgb);
+                    lineCpt.setParameter("timeScale", "1s");
+
+                    disp1.addToChildren("lines", lineCpt);
+
+                    Component outputColumn = new Component("op_"+p.getId(), lems.getComponentTypeByName("OutputColumn"));
+                    outputColumn.setParameter("quantity", p.getId());
+                    outF.addToChildren("outputColumn", outputColumn);
+                    
+                    count++;
+                }
+            }
+
             if (addModel)
                 lems.addComponent(sim1);
 
@@ -566,6 +595,35 @@ public class SBMLImporter  {
 
         return lems;
 
+    }
+
+    private static String replaceInFormula(String formula, HashMap<String, String> oldVsNew) {
+
+        //E.info("Replacing in: "+formula+" with: "+oldVsNew);
+    	for(String old: oldVsNew.keySet()) {
+    		String new_ = oldVsNew.get(old);
+    		formula = replaceInFormula(formula, old, new_);
+    	}
+        E.info("Now: "+formula);
+    	return formula;
+    }
+    
+    private static String replaceInFormula(String formula, String oldVal, String newVal) {
+    	formula = " "+formula+" ";
+    	String[] pres = new String[]{"\\(","\\+","-","\\*","/","\\^", " "};
+        String[] posts = new String[]{"\\)","\\+","-","\\*","/","\\^", " "};
+
+        for(String pre: pres){
+            for(String post: posts){
+                String o = pre+oldVal+post;
+                String n = pre+" "+newVal+" "+post;
+	                //E.info("Replacing "+o+" with "+n+": "+formula);
+                //if (formula.indexOf(o)>=0) {
+	                formula = formula.replaceAll(o, n);
+                //}
+            }
+        }
+        return formula.trim();
     }
 
     private static String replaceFunctionDefinitions(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException{
@@ -620,7 +678,7 @@ public class SBMLImporter  {
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
 
-        File testFile = new File(sbmlFile.getParent(), sbmlFile.getName().replaceAll(".xml", "")+"_SBML.xml");
+        File testFile = new File(sbmlFile.getParent(), sbmlFile.getName().replaceAll(".xml", "")+"_LEMS.xml");
 
         FileUtil.writeStringToFile(lemsString, testFile);
 
@@ -697,29 +755,34 @@ public class SBMLImporter  {
         else {
             int successful = 0;
             int completed = 0;
-            int failed = 0;
+            int failedMismatch = 0;
+            int failedError = 0;
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 21;
+            int numToStart = 1; 
             int numToStop = 21;
             //numToStart = 50;
             //numToStop = 200;
-            //numToStop = 1123;
-            numToStop = 100;
+            numToStop = 1123;
+            //numToStop = 200;
             
-            int numLemsPoints = 20000;
+            int numLemsPoints = 30000;
             float tolerance = 0.01f;
 
             if ((numToStop-numToStart)<=10)
         		SwingDataViewerFactory.initialize();
 
-            //boolean exitOnError = true;
             boolean exitOnError = false;
+            //exitOnError = true;
             boolean exitOnMismatch = true;
-            //boolean exitOnMismatch = false;
+            exitOnMismatch = false;
+            
             boolean skipFuncDefinitions = false;
             boolean skipUnitDefinitions = false;
+            boolean skipAlgebraicRules = true;
+            boolean skipDelays = true;
+            
             //String version = "l2v4";
             String version = "l3v1";
             
@@ -800,6 +863,17 @@ public class SBMLImporter  {
                             Model model = doc.getModel();
 
                             E.info("Model: "+model.getListOfUnitDefinitions().size());
+
+                            boolean containsAlgebRules = false;
+                            for(Rule r: model.getListOfRules()) {
+                            	if (r.isAlgebraic())
+                            		containsAlgebRules = true;
+                            }
+                            boolean containsDelays = false;
+                            for(Event e: model.getListOfEvents()) {
+                            	if (e.getDelay()!=null)
+                            		containsDelays = true;
+                            }
                             
                             if (model.getListOfFunctionDefinitions().size()>0 && skipFuncDefinitions) {
                             	String infoMessage = "Skipping: "+testCase+" due to function definitions";
@@ -808,6 +882,16 @@ public class SBMLImporter  {
 	                            skipped++;
                             } else if (model.getListOfUnitDefinitions().size()>0 && skipUnitDefinitions) {
                             	String infoMessage = "Skipping: "+testCase+" due to unit definitions";
+	                            E.info(infoMessage);
+	                            errors.append(testCase+": "+ infoMessage+"\n");
+	                            skipped++;
+                            } else if (containsAlgebRules && skipAlgebraicRules) {
+                            	String infoMessage = "Skipping: "+testCase+" due to AlgebraicRules";
+	                            E.info(infoMessage);
+	                            errors.append(testCase+": "+ infoMessage+"\n");
+	                            skipped++;
+                            } else if (containsDelays && skipDelays) {
+                            	String infoMessage = "Skipping: "+testCase+" due to Delay in Event";
 	                            E.info(infoMessage);
 	                            errors.append(testCase+": "+ infoMessage+"\n");
 	                            skipped++;
@@ -894,17 +978,18 @@ public class SBMLImporter  {
 	                            }
 	                            completed++;
 	
-	
+
+	                            int tried = successful+failedMismatch+failedError;
 	                            if (match)
 	                            {
 	                                successful++;
-	                                E.info("\n    Success of test: "+testCase+"!!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
+	                                E.info("\n    Success of test: "+testCase+"!!\n    So far: "+successful+" successful out of "+tried+" ("+completed+" completed)\n");
 	                            }
 	                            else
 	                            {
-	                                E.info("Failure of test: "+testCase+"!\n    So far: "+successful+" successful out of "+(successful+failed)+" ("+completed+" completed)\n");
+	                                E.info("Failure of test: "+testCase+"!\n    So far: "+successful+" successful out of "+tried+" ("+completed+" completed)\n");
 	                                if (exitOnMismatch) System.exit(-1);
-	                                failed++;
+	                                failedMismatch++;
 	                            }
                             }
 
@@ -916,22 +1001,24 @@ public class SBMLImporter  {
                             errors.append(testCase+": "+ e.getMessage()+"\n");
                             if (exitOnError) System.exit(-1);
 
-                            failed++;
+                            failedError++;
                         }
                         
                     }
                 }
 
             }
-
+            int tried = successful+failedMismatch+failedError;
             E.info("\nAll finished!\n"
-                    + "  Number successful:   "+successful+" out of "+(successful+failed)+" ("+(float)successful*100 / (successful+failed)+" %)\n"
-                    + "  Number completed:     "+completed+"\n"
-                    + "  Number failed:        "+failed+"\n"
-                    + "  Number skipped:       "+skipped+"\n"
-                    + "  Number not found:     "+notFound+"\n\n"
-                    + "  Number LEMS points:   "+numLemsPoints+"\n"
-                    + "  Tolerance:            "+tolerance);
+                    + "  Number successful:          "+successful+" out of "+tried+" ("+(float)successful*100 / (tried)+" %)\n"
+                    + "  Number completed:           "+completed+"\n"
+                    + "  Number failed (mismatch):   "+failedMismatch+"\n"
+                    + "  Number failed (exception):  "+failedError+"\n"
+                    + "  Number skipped:             "+skipped+"\n"
+                    + "  Number not found:           "+notFound+"\n\n"
+                    + "  Range:                      "+numToStart+" -> "+numToStop+"\n\n"
+                    + "  Number LEMS points:         "+numLemsPoints+"\n"
+                    + "  Tolerance:                  "+tolerance);
 
             FileUtil.writeStringToFile(errors.toString(), new File("Errors.txt"));
         }

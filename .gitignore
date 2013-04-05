@@ -1,6 +1,7 @@
 /.pydevproject
 /jsbml.log
 *_SBML.xml
+*_LEMS.xml
 *.xml~
 *.class
 
