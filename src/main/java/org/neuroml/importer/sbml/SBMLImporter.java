@@ -100,6 +100,7 @@ public class SBMLImporter  {
     
 
     //TODO: update!!!
+    
     private static File getNeuroML2Dir() {
     	String wdir = System.getProperty("user.dir");
 		File nml2Dir = new File(wdir + File.separator + "NeuroML2");
@@ -168,6 +169,9 @@ public class SBMLImporter  {
             	} else if (kind.equals("litre")) {
             		newDim.setM(3);
             		newUnit.setPower(-3);
+            	} else if (kind.equals("metre")) {
+            		newDim.setM(1);
+            		newUnit.setPower(1);
             	} else if (kind.equals("mole")) {
             		newDim.setN(1);
             	} else if (kind.equals("second")) {
@@ -294,14 +298,21 @@ public class SBMLImporter  {
         	
         	String formula = ia.getFormula();
 
+            E.info("ct.constants: "+ct.constants);
+            
         	try {
 	        	formula = replaceFunctionDefinitions(formula, functions);
 	            formula = replaceInFormula(formula, initVals);
 	            
-	            
-	            StateAssignment sa = new StateAssignment(var, formula);
-	            os.stateAssignments.add(sa);
-	            E.info("InitialAssignment: "+var +" = "+sa.getValueExpression());
+	            if (ct.constants.getByName(var)!=null)  {  // e.g. a compartment which is constant=true... case 00027
+	            	Constant c = ct.constants.getByName(var);
+	            	c.value = formula;
+		            E.info("Resetting constant: "+var +" to "+c.value);
+	            } else {
+		            StateAssignment sa = new StateAssignment(var, formula);
+		            os.stateAssignments.add(sa);
+		            E.info("InitialAssignment: "+var +" = "+sa.getValueExpression());
+	            }
         	} catch (Exception ex) {
                 throw new ContentError("Problem substituting function definitions in SBML", ex);
             }
@@ -674,7 +685,7 @@ public class SBMLImporter  {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
 
         //E.info("Generated: "+ lems.textSummary(true));
-        //E.info("Generated: "+ lems.getComponentTypeByName("case00053").summary());
+        //E.info("Generated ct: "+ lems.getComponentTypeByName("case00027").summary());
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
 
@@ -762,10 +773,10 @@ public class SBMLImporter  {
 
             int numToStart = 1; 
             int numToStop = 21;
-            //numToStart = 50;
+            //numToStart = 36;
             //numToStop = 200;
             numToStop = 1123;
-            //numToStop = 200;
+            //numToStop = 300;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -999,7 +1010,8 @@ public class SBMLImporter  {
                             System.out.println("\n\nSBML test: "+testCase+" failed!!\n");
                             e.printStackTrace();
                             errors.append(testCase+": "+ e.getMessage()+"\n");
-                            if (exitOnError) System.exit(-1);
+                            if (exitOnError) 
+                            	System.exit(-1);
 
                             failedError++;
                         }
