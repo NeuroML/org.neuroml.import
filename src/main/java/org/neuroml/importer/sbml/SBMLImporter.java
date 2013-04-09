@@ -103,13 +103,16 @@ public class SBMLImporter  {
     
     private static File getNeuroML2Dir() {
     	String wdir = System.getProperty("user.dir");
-		File nml2Dir = new File(wdir + File.separator + "NeuroML2");
+		File nml2Dir = new File(wdir+ File.separator +".." + File.separator + "NeuroML2");
+		System.out.println("nml2Dir "+nml2Dir);
+	
         if (!nml2Dir.exists() || !nml2Dir.isDirectory())
         {
             //Temp hack...
             String jnmlHome = System.getenv("JNML_HOME");
             nml2Dir = new File(jnmlHome + File.separator +".." + File.separator + "NeuroML2");
         }
+		System.out.println("nml2Dir "+nml2Dir);
         return nml2Dir; 
     }
 
@@ -776,7 +779,7 @@ public class SBMLImporter  {
             //numToStart = 36;
             //numToStop = 200;
             numToStop = 1123;
-            //numToStop = 300;
+            numToStop = 2;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
