@@ -4,7 +4,7 @@
     <groupId>org.neuroml.import</groupId>
     <artifactId>org.neuroml.import</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.3</version>
+    <version>1.0.4</version>
     <name>org.neuroml.import</name>
     <url>http://maven.apache.org</url>
     <repositories>
@@ -28,19 +28,9 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.neuroml.model</groupId>
-            <artifactId>org.neuroml.model</artifactId>
-            <version>1.0.2</version>
-        </dependency>
-        <dependency>
             <groupId>org.neuroml.export</groupId>
             <artifactId>org.neuroml.export</artifactId>
-            <version>1.0.6</version>
-        </dependency>
-        <dependency>
-            <groupId>org.lemsml</groupId>
-            <artifactId>jlems</artifactId>
-            <version>0.9.3</version>
+            <version>1.0.7</version>
         </dependency>
         
         <dependency>

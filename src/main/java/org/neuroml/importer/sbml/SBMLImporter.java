@@ -104,7 +104,7 @@ public class SBMLImporter  {
     private static File getNeuroML2Dir() {
     	String wdir = System.getProperty("user.dir");
 		File nml2Dir = new File(wdir+ File.separator +".." + File.separator + "NeuroML2");
-		System.out.println("nml2Dir "+nml2Dir);
+		E.info("nml2Dir "+nml2Dir);
 	
         if (!nml2Dir.exists() || !nml2Dir.isDirectory())
         {
@@ -112,7 +112,7 @@ public class SBMLImporter  {
             String jnmlHome = System.getenv("JNML_HOME");
             nml2Dir = new File(jnmlHome + File.separator +".." + File.separator + "NeuroML2");
         }
-		System.out.println("nml2Dir "+nml2Dir);
+		E.info("nml2Dir "+nml2Dir);
         return nml2Dir; 
     }
 
@@ -150,8 +150,8 @@ public class SBMLImporter  {
             lems.addComponent(comp);
 
 
-        Dynamics b = new Dynamics();
-        ct.dynamicses.add(b);
+        Dynamics dyn = new Dynamics();
+        ct.dynamicses.add(dyn);
 
         OnStart os = new OnStart();
 
@@ -223,7 +223,7 @@ public class SBMLImporter  {
                 ct.exposures.add(ex);
 
                 StateVariable sv = new StateVariable(c.getId(), compDim, ex);
-                b.stateVariables.add(sv);
+                dyn.stateVariables.add(sv);
 
                 StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+" "+compUnit.getSymbol());
                 os.stateAssignments.add(sa);
@@ -241,15 +241,31 @@ public class SBMLImporter  {
                 Exposure ex = new Exposure(p.getId(), paramDim);
                 ct.exposures.add(ex);
 
-                StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
-                b.stateVariables.add(sv);
+                boolean isStateVar = false;
+                for(Rule r: model.getListOfRules()) {
+                	if (r.isRate()) {
+                		RateRule rr = (RateRule)r;
+                		if ( rr.getVariable().equals(p.getId()) ) {
+
+                            StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
+                            dyn.stateVariables.add(sv);
+                            isStateVar = true;
+                		}
+                	}
+                }
 
                 if (p.isSetValue()){
-
-
-                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
-                    os.stateAssignments.add(sa);
+                	if (isStateVar) {
+	                    E.info("Setting init param: "+p.getId() +" = "+p.getValue());
+	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
+	                    os.stateAssignments.add(sa);
+                	} else {
+                		E.info("Problem with "+sbmlFile+"\n");
+                        System.exit(-1);
+                	}
+                	
                 }
+
             }
             else {
             	org.lemsml.jlems.core.type.Parameter lp = new org.lemsml.jlems.core.type.Parameter(p.getId(), paramDim);
@@ -265,6 +281,7 @@ public class SBMLImporter  {
             functions.add(fd);
         }
 
+
         E.info("functions: "+functions);
         
         
@@ -277,7 +294,7 @@ public class SBMLImporter  {
             Exposure ex = new Exposure(s.getId(), speciesDim);
             ct.exposures.add(ex);
             StateVariable sv = new StateVariable(s.getId(), speciesDim, ex);
-            b.stateVariables.add(sv);
+            dyn.stateVariables.add(sv);
 
             if (s.isSetValue()){
 
@@ -339,14 +356,14 @@ public class SBMLImporter  {
                 RateRule rr = (RateRule)r;
 
                 TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+formula +")");
-                b.timeDerivatives.add(td);
+                dyn.timeDerivatives.add(td);
             }
             if (r.isAssignment()){
                 Dimension speciesDim = noDim;
                 AssignmentRule ar = (AssignmentRule)r;
                 
                 DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
-                b.derivedVariables.add(dv);
+                dyn.derivedVariables.add(dv);
 
                 formula = replaceInFormula(formula, initVals);
                 
@@ -362,12 +379,14 @@ public class SBMLImporter  {
 	                	}
 	                }
                 }
-                if (sa==null) {
-                	sa = new StateAssignment(ar.getVariable());
-                	os.stateAssignments.add(sa);
-                }
                 
-                sa.setValue(formula);
+                if (sa!=null) {
+                	sa.setValue(formula);
+                } else {
+                	///sa = new StateAssignment(ar.getVariable());
+                	///os.stateAssignments.add(sa);
+                	////sa.setValue(formula);
+                }
 
                 //TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+ rr.getFormula()+")");
                 //b.timeDerivatives.add(td);
@@ -384,7 +403,7 @@ public class SBMLImporter  {
                 E.info("Test tidied to: "+test);
 
                 OnCondition oc = new OnCondition(test);
-                b.onConditions.add(oc);
+                dyn.onConditions.add(oc);
                 for (EventAssignment ea: e.getListOfEventAssignments() ){
                     String formula = ea.getFormula();
 
@@ -399,9 +418,13 @@ public class SBMLImporter  {
 
         }
         if (os.stateAssignments.size()>0)
-            b.onStarts.add(os);
+            dyn.onStarts.add(os);
 
-        HashMap<String, StringBuilder> rates = new HashMap<String, StringBuilder>();
+        for (StateAssignment sa: os.getStateAssignments()) {
+        	E.info("OnStarts: "+sa.variable+" = "+sa.value);
+        }
+
+        HashMap<String, StringBuilder> speciesTotalRates = new HashMap<String, StringBuilder>();
 
         for (Reaction reaction: model.getListOfReactions()){
             KineticLaw kl = reaction.getKineticLaw();
@@ -441,22 +464,25 @@ public class SBMLImporter  {
             formula = replaceInFormula(formula, speciesScales);
         
             E.info("formula now: "+formula);
-
+            String rateDvName = "rate__"+reaction.getId();
+            DerivedVariable dv = new DerivedVariable(rateDvName, noDim, formula);
+            dyn.derivedVariables.add(dv);
+            
             for (SpeciesReference product: reaction.getListOfProducts()){
                 String s = product.getSpecies();
                 Species sp = model.getListOfSpecies().get(s);
 
                 if (!sp.getBoundaryCondition()) {
-                    if (rates.get(s)==null) rates.put(s, new StringBuilder("0"));
+                    if (speciesTotalRates.get(s)==null) speciesTotalRates.put(s, new StringBuilder(""));
 
-                    StringBuilder sb = rates.get(s);
+                    StringBuilder sb = speciesTotalRates.get(s);
                     String pre = " + ";
-                    if (false && sb.length()==0) pre = "";
+                    if (sb.length()==0) pre = "";
 
                     if (product.isSetStoichiometry() && product.getStoichiometry()!=1){
-                        sb.append(pre+"("+formula+" * "+product.getStoichiometry()+")");
+                        sb.append(pre+"("+rateDvName+" * "+product.getStoichiometry()+")");
                     } else {
-                        sb.append(pre+formula+"");
+                        sb.append(pre+rateDvName+"");
                     }
                     	
                 }
@@ -468,13 +494,13 @@ public class SBMLImporter  {
                 Species sp = model.getListOfSpecies().get(s);
 
                 if (!sp.getBoundaryCondition()) {
-                    if (rates.get(s)==null) rates.put(s, new StringBuilder("0"));
+                    if (speciesTotalRates.get(s)==null) speciesTotalRates.put(s, new StringBuilder(""));
 
-                    StringBuilder sb = rates.get(s);
-                    if (false && sb.length()==0) {
-                    	sb.append("-1*"+formula);
+                    StringBuilder sb = speciesTotalRates.get(s);
+                    if (sb.length()==0) {
+                    	sb.append("-1*"+rateDvName+"");
                     } else {
-                    	sb.append(" - "+formula+"");
+                    	sb.append(" - "+rateDvName+"");
                     }
                     
                     if (reactant.isSetStoichiometry() && reactant.getStoichiometry()!=1){
@@ -486,14 +512,14 @@ public class SBMLImporter  {
 
         }
         
-        System.out.println(">>>> "+rates);
+        E.info(">>>> speciesTotalRates: "+speciesTotalRates);
 
-        for(String s: rates.keySet()){
+        for(String s: speciesTotalRates.keySet()){
         	Species sp = model.getSpecies(s);
-            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+rates.get(s).toString()+") ");
+            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+speciesTotalRates.get(s).toString()+") ");
 
-            System.out.println(">>>> TimeDerivative "+td.getValueExpression());
-            b.timeDerivatives.add(td);
+            E.info(">>>> TimeDerivative "+td.getValueExpression());
+            dyn.timeDerivatives.add(td);
         }
 
         if (simDuration>0 && simDt>0){
@@ -665,7 +691,7 @@ public class SBMLImporter  {
                 for(int i=0;i<args.length;i++){
                     String arg = args[i];
                     ASTNode a = fd.getArgument(i);
-                    System.out.println("replacing "+a+" by "+arg);
+                    E.info("replacing "+a+" by "+arg);
                     ASTNode newA = JSBML.parseFormula(arg);
                     exp.replaceArgument(a.toString(), newA);
                 }
@@ -774,12 +800,12 @@ public class SBMLImporter  {
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 1; 
+            int numToStart = 478; 
             int numToStop = 21;
             //numToStart = 36;
             //numToStop = 200;
             numToStop = 1123;
-            numToStop = 2;
+            numToStop = 600;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -811,7 +837,7 @@ public class SBMLImporter  {
 
                     sbmlFile = new File(srcDir+"/sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
                     if (!sbmlFile.exists()){
-                        System.out.println("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
+                        E.info("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
                         notFound++;
                     }
                     else
@@ -824,18 +850,18 @@ public class SBMLImporter  {
                         dt = (float)(len/numLemsPoints);
 
 
-                        System.out.println("\n\n---------------------------------\n\nSBML test: "+testCase+" going to be run!");
+                        E.info("\n\n---------------------------------\n\nSBML test: "+testCase+" going to be run!");
                         try{
                             System.gc();
                             runTest(sbmlFile, len, dt);
 
-                            System.out.println("SBML test: "+testCase+" completed!");
+                            E.info("SBML test: "+testCase+" completed!");
                             HashMap<String, float[]> targets = new HashMap<String, float[]>();
                             //HashMap<String, float[]> results = new HashMap<String, float[]>();
 
                             File targetFile = new File(sbmlFile.getParentFile(), testCase+"-results.csv");
 
-                            System.out.println("Loading target data from "+targetFile.getCanonicalPath());
+                            E.info("Loading target data from "+targetFile.getCanonicalPath());
                             BufferedReader reader = new BufferedReader(new FileReader(targetFile));
 
                             String line = reader.readLine();
@@ -1010,7 +1036,7 @@ public class SBMLImporter  {
                             reader.close();
                             
                         } catch(Exception e){
-                            System.out.println("\n\nSBML test: "+testCase+" failed!!\n");
+                            E.info("\n\nSBML test: "+testCase+" failed!!\n");
                             e.printStackTrace();
                             errors.append(testCase+": "+ e.getMessage()+"\n");
                             if (exitOnError) 

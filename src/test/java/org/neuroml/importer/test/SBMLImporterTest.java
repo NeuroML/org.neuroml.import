@@ -7,6 +7,7 @@ import javax.xml.stream.XMLStreamException;
 
 import org.lemsml.jlems.core.expression.ParseError;
 import org.lemsml.jlems.core.logging.E;
+import org.lemsml.jlems.core.logging.MinimalMessageHandler;
 import org.lemsml.jlems.core.sim.ContentError;
 import org.lemsml.jlems.core.sim.ParseException;
 import org.lemsml.jlems.core.type.BuildException;
@@ -53,6 +54,7 @@ public class SBMLImporterTest extends TestCase {
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000184.xml");
         convertSBMLtoLEMSFile(sbmlFile, 1000);
 	}
+	
 	/*
 	public void testBio118()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
@@ -62,6 +64,8 @@ public class SBMLImporterTest extends TestCase {
 
 	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
+    	MinimalMessageHandler.setVeryMinimal(true);
+		
         System.out.println( "Converting "+sbmlFile.getAbsolutePath()+" from SBML to LEMS" );
         float dt = (float)(simDuration/10000.0);
 

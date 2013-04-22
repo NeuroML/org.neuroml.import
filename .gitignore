@@ -11,6 +11,12 @@ target
 src/test/resources/sbmlTestSuite/
 src/test/resources/*.dat
 src/test/resources/*.ode
+src/test/resources/*.gv
+src/test/resources/*.py
+src/test/resources/*.log
+src/test/resources/*.png
+src/test/resources/*.csv
+
 src/test/resources/tmp
 
 Errors.txt
