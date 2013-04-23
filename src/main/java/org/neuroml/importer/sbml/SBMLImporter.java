@@ -242,16 +242,31 @@ public class SBMLImporter  {
                 ct.exposures.add(ex);
 
                 boolean isStateVar = false;
+
                 for(Rule r: model.getListOfRules()) {
                 	if (r.isRate()) {
                 		RateRule rr = (RateRule)r;
                 		if ( rr.getVariable().equals(p.getId()) ) {
-
-                            StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
-                            dyn.stateVariables.add(sv);
                             isStateVar = true;
                 		}
                 	}
+                }
+                for(Event e: model.getListOfEvents()) {
+                	for (EventAssignment ea: e.getListOfEventAssignments()) {
+                		if ( ea.getVariable().equals(p.getId()) ) {
+                            isStateVar = true;
+                		}
+                	}
+                }
+                for(InitialAssignment ia: model.getListOfInitialAssignments()) {
+            		if ( ia.getVariable().equals(p.getId()) ) {
+                        isStateVar = true;
+            		}
+                }
+                
+                if (isStateVar) {
+                    StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
+                    dyn.stateVariables.add(sv);
                 }
 
                 if (p.isSetValue()){
@@ -515,7 +530,7 @@ public class SBMLImporter  {
         E.info(">>>> speciesTotalRates: "+speciesTotalRates);
 
         for(String s: speciesTotalRates.keySet()){
-        	Species sp = model.getSpecies(s);
+        	//Species sp = model.getSpecies(s);
             TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+speciesTotalRates.get(s).toString()+") ");
 
             E.info(">>>> TimeDerivative "+td.getValueExpression());
@@ -764,7 +779,7 @@ public class SBMLImporter  {
         
         sbmlFile = new File(srcDir+"/Simple3Species.xml");
         
-        File sbmlFileDir = new File(srcDir+"/sbmlTestSuite/cases/semantic/");
+        File sbmlFileDir = new File("sbmlTestSuite/cases/semantic/");
             if (sbmlFileDir.exists()){
             sbmlFile = sbmlFileDir;
         }
@@ -800,12 +815,12 @@ public class SBMLImporter  {
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 478; 
+            int numToStart = 1; 
             int numToStop = 21;
             //numToStart = 36;
             //numToStop = 200;
             numToStop = 1123;
-            numToStop = 600;
+            //numToStop = 00;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -835,7 +850,7 @@ public class SBMLImporter  {
                     while(testCase.length()<5) testCase ="0"+testCase;
 
 
-                    sbmlFile = new File(srcDir+"/sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
+                    sbmlFile = new File("sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
                     if (!sbmlFile.exists()){
                         E.info("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
                         notFound++;
