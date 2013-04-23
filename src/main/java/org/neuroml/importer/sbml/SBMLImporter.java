@@ -261,7 +261,7 @@ public class SBMLImporter  {
 	                    os.stateAssignments.add(sa);
                 	} else {
                 		E.info("Problem with "+sbmlFile+"\n");
-                        System.exit(-1);
+                        //System.exit(-1);
                 	}
                 	
                 }
