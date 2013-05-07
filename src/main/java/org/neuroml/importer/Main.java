@@ -1,13 +1,8 @@
 package org.neuroml.importer;
 
-/**
- * Hello world!
- *
- */
+
 public class Main 
 {
-    public static void main( String[] args )
-    {
-        System.out.println( "Hello World from org.neuroml.import!" );
-    }
+
+    public static String ORG_NEUROML_IMPORT_VERSION = "1.0.5";
 }
