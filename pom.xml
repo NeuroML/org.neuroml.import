@@ -4,7 +4,7 @@
     <groupId>org.neuroml.import</groupId>
     <artifactId>org.neuroml.import</artifactId>
     <packaging>jar</packaging>
-    <version>1.0.6</version>
+    <version>1.0.7</version>
     <name>org.neuroml.import</name>
     <url>http://maven.apache.org</url>
     <repositories>
@@ -30,7 +30,7 @@
         <dependency>
             <groupId>org.neuroml.export</groupId>
             <artifactId>org.neuroml.export</artifactId>
-            <version>1.0.9</version>
+            <version>1.1.0</version>
         </dependency>
         
         <dependency>
