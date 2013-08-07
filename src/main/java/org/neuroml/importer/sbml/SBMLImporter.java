@@ -681,10 +681,11 @@ public class SBMLImporter  {
 
     private static String replaceFunctionDefinitions(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException{
 
-        E.info("Substituting function defs in: "+formula);
+        E.info("---- Substituting function defs in: "+formula);
         for (FunctionDefinition fd: functions){
 
-            ASTNode exp = fd.getBody();
+            ASTNode exp0 = fd.getBody();
+            ASTNode exp = (ASTNode)exp0.clone();
             E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp);
             int count=0;
             String origFormula = new String(formula);
@@ -702,11 +703,13 @@ public class SBMLImporter  {
 
 
                 for(int i=0;i<args.length;i++){
-                    String arg = args[i];
+                    String arg = args[i].trim();
                     ASTNode a = fd.getArgument(i);
-                    E.info("replacing "+a+" by "+arg);
+                    E.info("replacing <"+a+"> by <"+arg+">");
                     ASTNode newA = JSBML.parseFormula(arg);
+                    //E.info(exp.toFormula());
                     exp.replaceArgument(a.toString(), newA);
+                    //E.info(exp.toFormula());
                 }
                 String newExp = "( "+ ASTNode.formulaToString(exp)+" )";
 
@@ -784,12 +787,12 @@ public class SBMLImporter  {
         //File sbmlFile = new File("exportImportUtils/SBML/Simple3Species.xml");
         String srcDir = "src/test/resources";
         File sbmlFile = new File(srcDir+"/Izhikevich.xml");
-
-        sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
         
         sbmlFile = new File(srcDir+"/BIOMD0000000184.xml");
         
         sbmlFile = new File(srcDir+"/Simple3Species.xml");
+
+        sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
         
         File sbmlFileDir = new File("sbmlTestSuite/cases/semantic/");
             if (sbmlFileDir.exists()){
@@ -803,7 +806,7 @@ public class SBMLImporter  {
         float len = 10;
         if (sbmlFile.getName().indexOf("Izh")>=0) len = 140;
         if (sbmlFile.getName().indexOf("0039")>=0) len = 50;
-        if (sbmlFile.getName().indexOf("00118")>=0) len = 50;
+        if (sbmlFile.getName().indexOf("00118")>=0) len = 150;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
         float dt = (float)(len/20000.0);
 
@@ -832,7 +835,7 @@ public class SBMLImporter  {
             //numToStart = 36;
             //numToStop = 200;
             numToStop = 1123;
-            numToStop = 100;
+            //numToStop = 100;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
