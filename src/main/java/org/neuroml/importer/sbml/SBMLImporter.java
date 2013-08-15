@@ -218,11 +218,40 @@ public class SBMLImporter  {
                 Exposure ex = new Exposure(c.getId(), compDim);
                 ct.exposures.add(ex);
 
-                StateVariable sv = new StateVariable(c.getId(), compDim, ex);
-                dyn.stateVariables.add(sv);
+                //StateVariable sv = new StateVariable(c.getId(), compDim, ex);
+                ///dyn.stateVariables.add(sv);
+                
+                boolean isStateVar = false;
 
-                StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+" "+compUnit.getSymbol());
-                os.stateAssignments.add(sa);
+                for(Rule r: model.getListOfRules()) {
+                	if (r.isRate()) {
+                		RateRule rr = (RateRule)r;
+                		if ( rr.getVariable().equals(c.getId()) ) {
+                            isStateVar = true;
+                		}
+                	}
+                }
+                for(Event e: model.getListOfEvents()) {
+                	for (EventAssignment ea: e.getListOfEventAssignments()) {
+                		if ( ea.getVariable().equals(c.getId()) ) {
+                            isStateVar = true;
+                		}
+                	}
+                }
+                for(InitialAssignment ia: model.getListOfInitialAssignments()) {
+            		if ( ia.getVariable().equals(c.getId()) ) {
+                        isStateVar = true;
+            		}
+                }
+                E.info("Adding: "+c+" isStateVar: "+isStateVar);
+                
+                if (isStateVar) {
+                	StateVariable sv = new StateVariable(c.getId(), compDim, ex);
+                    dyn.stateVariables.add(sv);
+                    StateAssignment sa = new StateAssignment(c.getId(), c.getSize()+" "+compUnit.getSymbol());
+                    os.stateAssignments.add(sa);
+                }
+
             }
 
 
@@ -570,7 +599,7 @@ public class SBMLImporter  {
 
             for(Species s: model.getListOfSpecies()) {
 
-                Component lineCpt = new Component("ls_"+s.getId(), lems.getComponentTypeByName("Line"));
+                Component lineCpt = new Component(s.getId()+"__S", lems.getComponentTypeByName("Line"));
                 lineCpt.setParameter("scale", "1");
                 lineCpt.setParameter("quantity", s.getId());
                 Color c = ColorUtil.getSequentialColour(count);
@@ -592,7 +621,7 @@ public class SBMLImporter  {
             for(Compartment c: model.getListOfCompartments()) {
 
                 if (!c.isConstant()){
-                    Component lineCpt = new Component("lc_"+c.getId(), lems.getComponentTypeByName("Line"));
+                    Component lineCpt = new Component(c.getId()+"__C", lems.getComponentTypeByName("Line"));
                     lineCpt.setParameter("scale", "1");
                     lineCpt.setParameter("quantity", c.getId());
                     Color col = ColorUtil.getSequentialColour(count);
@@ -615,7 +644,7 @@ public class SBMLImporter  {
             for(Parameter p: model.getListOfParameters()) {
 
                 if (!p.isConstant()){
-                    Component lineCpt = new Component("lp_"+p.getId(), lems.getComponentTypeByName("Line"));
+                    Component lineCpt = new Component(p.getId()+"__P", lems.getComponentTypeByName("Line"));
                     lineCpt.setParameter("scale", "1");
                     lineCpt.setParameter("quantity", p.getId());
                     Color c = ColorUtil.getSequentialColour(count);
@@ -793,20 +822,25 @@ public class SBMLImporter  {
         sbmlFile = new File(srcDir+"/Simple3Species.xml");
 
         sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000118_SBML-L2V4.xml");
+        
+        
+        boolean overrideLocalSTS = true;
+        overrideLocalSTS = false;
         
         File sbmlFileDir = new File("sbmlTestSuite/cases/semantic/");
-            if (sbmlFileDir.exists()){
+            if (sbmlFileDir.exists() && !overrideLocalSTS){
             sbmlFile = sbmlFileDir;
         }
 
+        
         boolean sbmlTestSuite = sbmlFile.getAbsolutePath().indexOf("sbmlTestSuite")>=0;
-
 
 
         float len = 10;
         if (sbmlFile.getName().indexOf("Izh")>=0) len = 140;
         if (sbmlFile.getName().indexOf("0039")>=0) len = 50;
-        if (sbmlFile.getName().indexOf("00118")>=0) len = 150;
+        if (sbmlFile.getName().indexOf("00118")>=0) len = 100;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
         float dt = (float)(len/20000.0);
 
@@ -818,7 +852,7 @@ public class SBMLImporter  {
 
         StringBuilder errors = new StringBuilder();
 
-        if (!sbmlTestSuite){
+        if (overrideLocalSTS || !sbmlTestSuite){
         	SwingDataViewerFactory.initialize();
             runTest(sbmlFile, len, dt);
         }
@@ -832,10 +866,10 @@ public class SBMLImporter  {
 
             int numToStart = 1; 
             int numToStop = 21;
-            //numToStart = 36;
-            //numToStop = 200;
             numToStop = 1123;
             //numToStop = 100;
+            //numToStart = 300;
+            //numToStop = 400;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -975,10 +1009,11 @@ public class SBMLImporter  {
 	
 	                                cols.add(s.getId());
 	                            }
+	                            /*
 	                            for(Compartment c: model.getListOfCompartments()) {
 	                            	if (!c.isConstant())
 	                            		cols.add(c.getId());
-	                            }
+	                            }*/
 	
 	                            E.info("Checking columns: "+cols+" in "+resultFile);
 	

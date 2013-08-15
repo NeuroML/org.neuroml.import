@@ -1,3 +1,6 @@
+x86_64
+/src/test/resources/*.mod
+/src/test/resources/*.txt
 /src/test/resources/clean.sh
 /.pydevproject
 /jsbml.log
