@@ -262,7 +262,15 @@ public class SBMLImporter  {
             E.info("Adding: "+p);
             Dimension paramDim = getDim(p.getUnits(), dims);
 
-            if (!p.isConstant()) {
+            boolean isInitAss = false;
+            
+            for(InitialAssignment ia: model.getListOfInitialAssignments()) {
+        		if ( ia.getVariable().equals(p.getId()) ) {
+        			isInitAss = true;
+        		}
+            }
+
+            if (!p.isConstant() || isInitAss) {
                 Exposure ex = new Exposure(p.getId(), paramDim);
                 ct.exposures.add(ex);
 
@@ -283,11 +291,9 @@ public class SBMLImporter  {
                 		}
                 	}
                 }
-                for(InitialAssignment ia: model.getListOfInitialAssignments()) {
-            		if ( ia.getVariable().equals(p.getId()) ) {
-                        isStateVar = true;
-            		}
-                }
+                
+                if (isInitAss)
+                    isStateVar = true;
                 
                 if (isStateVar) {
                     StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
@@ -868,7 +874,7 @@ public class SBMLImporter  {
             int numToStop = 21;
             numToStop = 1123;
             //numToStop = 100;
-            //numToStart = 300;
+            //numToStart = 469;
             //numToStop = 400;
             
             int numLemsPoints = 30000;
@@ -881,8 +887,10 @@ public class SBMLImporter  {
             //exitOnError = true;
             boolean exitOnMismatch = true;
             exitOnMismatch = false;
-            
+
             boolean skipFuncDefinitions = false;
+            boolean skipFuncUnsupported = true;
+            
             boolean skipUnitDefinitions = false;
             boolean skipAlgebraicRules = true;
             boolean skipDelays = true;
