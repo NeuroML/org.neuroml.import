@@ -19,6 +19,7 @@ import org.lemsml.jlems.io.util.FileUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
 import org.neuroml.export.Utils;
 import org.neuroml.importer.sbml.SBMLImporter;
+import org.neuroml.importer.sbml.UnsupportedSBMLFeature;
 import org.sbml.jsbml.SBMLException;
 
 import junit.framework.TestCase;
@@ -32,26 +33,26 @@ public class SBMLImporterTest extends TestCase {
     if (sbmlFile.getName().indexOf("00118")>=0) len = 50;
     if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;*/
 
-	public void testSimple()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError {
+	public void testSimple()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/Simple3Species.xml");
         convertSBMLtoLEMSFile(sbmlFile, 8);
 	}
 
-	public void testIzhikevich()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError {
+	public void testIzhikevich()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/Izhikevich.xml");
         convertSBMLtoLEMSFile(sbmlFile, 150);
 	}
 
-	public void testBio39()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError {
+	public void testBio39()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000039.xml");
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}
 	
 		
-	public void testBio184()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError {
+	public void testBio184()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000184.xml");
         convertSBMLtoLEMSFile(sbmlFile, 1000);
@@ -64,7 +65,7 @@ public class SBMLImporterTest extends TestCase {
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}*/
 
-	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError {
+	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
 
     	MinimalMessageHandler.setVeryMinimal(true);
 		

@@ -88,7 +88,7 @@ public class SBMLImporter  {
 
     public static String tscaleName = "tscale";
 
-    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError {
+    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
     }
 
@@ -107,7 +107,7 @@ public class SBMLImporter  {
 
 
     @SuppressWarnings("deprecation")
-	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError {
+	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
 
     	E.setDebug(false);
         SBMLReader sr = new SBMLReader();
@@ -197,6 +197,9 @@ public class SBMLImporter  {
          
         }
 
+        Constant timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
+        ct.constants.add(timeScale);
+
         for(Compartment c: model.getListOfCompartments()){
             Dimension compDim = getDim(c.getUnits(), dims);
             
@@ -210,6 +213,7 @@ public class SBMLImporter  {
             E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+", units = "+c.getUnits()+" ("+compDim+"))");
             
             size = size+" "+compUnit.getSymbol();
+            
 
             if (c.isConstant()){
                 Constant constComp = new Constant(c.getId(), compDim, size);
@@ -275,12 +279,14 @@ public class SBMLImporter  {
                 ct.exposures.add(ex);
 
                 boolean isStateVar = false;
+                boolean hasRateRule = false;
 
                 for(Rule r: model.getListOfRules()) {
                 	if (r.isRate()) {
                 		RateRule rr = (RateRule)r;
                 		if ( rr.getVariable().equals(p.getId()) ) {
                             isStateVar = true;
+                            hasRateRule = true;
                 		}
                 	}
                 }
@@ -298,6 +304,11 @@ public class SBMLImporter  {
                 if (isStateVar) {
                     StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
                     dyn.stateVariables.add(sv);
+                    E.info("  -- Adding state var: "+sv);
+                    if (!hasRateRule) {
+                        TimeDerivative td = new TimeDerivative(p.getId(), timeScale.getName() +" * 0");
+                        dyn.timeDerivatives.add(td);
+                    }
                 }
 
                 if (p.isSetValue()){
@@ -306,10 +317,15 @@ public class SBMLImporter  {
 	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
 	                    os.stateAssignments.add(sa);
                 	} else {
-                		E.info("Problem with "+sbmlFile+"\n");
+                		//E.info("Problem with "+sbmlFile+"\n");
                         //System.exit(-1);
+
+                    	org.lemsml.jlems.core.type.Parameter lp = new org.lemsml.jlems.core.type.Parameter(p.getId(), paramDim);
+                        lp.name = p.getId();
+                        ct.parameters.add(lp);
+                        comp.setParameter(p.getId(), p.getValue()+"");
+                		
                 	}
-                	
                 }
 
             }
@@ -366,34 +382,27 @@ public class SBMLImporter  {
 
             E.info("ct.constants: "+ct.constants);
             
-        	try {
-	        	formula = replaceFunctionDefinitions(formula, functions);
-	            formula = replaceInFormula(formula, initVals);
-	            
-	            if (ct.constants.getByName(var)!=null)  {  // e.g. a compartment which is constant=true... case 00027
-	            	Constant c = ct.constants.getByName(var);
-	            	c.value = formula;
-		            E.info("Resetting constant: "+var +" to "+c.value);
-	            } else {
-		            StateAssignment sa = new StateAssignment(var, formula);
-		            os.stateAssignments.add(sa);
-		            E.info("InitialAssignment: "+var +" = "+sa.getValueExpression());
-	            }
-        	} catch (Exception ex) {
-                throw new ContentError("Problem substituting function definitions in SBML", ex);
+        	formula = handleFormula(formula, functions);
+            formula = replaceInFormula(formula, initVals);
+            
+            if (ct.constants.getByName(var)!=null)  {  // e.g. a compartment which is constant=true... case 00027
+            	Constant c = ct.constants.getByName(var);
+            	c.value = formula;
+	            E.info("Resetting constant: "+var +" to "+c.value);
+            } else {
+	            StateAssignment sa = new StateAssignment(var, formula);
+	            os.stateAssignments.add(sa);
+	            E.info("InitialAssignment: "+var +" = "+sa.getValueExpression());
             }
         	
         }
-
-        Constant timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
-        ct.constants.add(timeScale);
 
 
         for (Rule r: model.getListOfRules()){
 
             String formula = r.getFormula();
             
-            formula = replaceFunctionDefinitions(formula, functions);
+            formula = handleFormula(formula, functions);
    
 
             E.info("Adding rule: "+r);
@@ -443,24 +452,21 @@ public class SBMLImporter  {
             String testFormula = e.getTrigger().getFormula();
             E.info("Adding event: "+e+", test: "+testFormula);
 
-            try {
-                testFormula = replaceFunctionDefinitions(testFormula, functions);
-                String test = replaceOperatorsAndTime(testFormula);
-                E.info("Test tidied to: "+test);
+            String test = handleFormula(testFormula, functions);
+            test = replaceOperators(test);
+            E.info("Test tidied to: "+test);
 
-                OnCondition oc = new OnCondition(test);
-                dyn.onConditions.add(oc);
-                for (EventAssignment ea: e.getListOfEventAssignments() ){
-                    String formula = ea.getFormula();
+            OnCondition oc = new OnCondition(test);
+            dyn.onConditions.add(oc);
+            for (EventAssignment ea: e.getListOfEventAssignments() ){
+                String formula = ea.getFormula();
 
-                    formula = replaceFunctionDefinitions(formula, functions);
+                formula = handleFormula(formula, functions);
 
-                    StateAssignment sa = new StateAssignment(ea.getVariable(), formula);
-                    oc.stateAssignments.add(sa);
-                }
-            } catch (Exception ex) {
-                throw new ContentError("Problem substituting function definitions in SBML", ex);
+                StateAssignment sa = new StateAssignment(ea.getVariable(), formula);
+                oc.stateAssignments.add(sa);
             }
+  
 
         }
         if (os.stateAssignments.size()>0)
@@ -498,12 +504,8 @@ public class SBMLImporter  {
             String formula = "("+kl.getFormula()+")";
             E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" ud "+kl.containsUndeclaredUnits());
 
-            try{
-                formula = replaceFunctionDefinitions(formula, functions);
-            }
-            catch (Exception ex){
-                throw new ContentError("Problem substituting function definitions in SBML", ex);
-            }
+            formula = handleFormula(formula, functions);
+      
             
             //
             formula = replaceInFormula(formula, localParams);
@@ -714,9 +716,28 @@ public class SBMLImporter  {
         return formula.trim();
     }
 
-    private static String replaceFunctionDefinitions(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException{
+    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException, UnsupportedSBMLFeature {
+    	checkFormula(formula);
+    	String formula0 = replaceTime(formula);
+    	String formula1 = replaceFactorial(formula0);
+    	String formula2 = replaceFunctionDefinitions(formula1, functions);
+    	return formula2;
+    }
+    
+    private static void checkFormula(String formula) throws UnsupportedSBMLFeature {
+    	
+    	E.info("Checking: "+formula);
+        if (formula.indexOf("piecewise")>=0)
+        {
+        	E.info("Fail!");
+        	throw new UnsupportedSBMLFeature("Piecewise function expressions are not yet supported in the SBML -> LEMS converter!");
+        }
+    }
+
+    private static String replaceFunctionDefinitions(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException, UnsupportedSBMLFeature{
 
         E.info("---- Substituting function defs in: "+formula);
+        
         for (FunctionDefinition fd: functions){
 
             ASTNode exp0 = fd.getBody();
@@ -724,17 +745,35 @@ public class SBMLImporter  {
             E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp);
             int count=0;
             String origFormula = new String(formula);
+            
 
             while (formula.contains(fd.getId())){
                 count++;
                 if (count>20) throw new ParseException("Problem with formula: "+origFormula);
                 
-                int start = formula.indexOf(fd.getId());
-                int end = formula.indexOf(")", start);
+                int start = formula.lastIndexOf(fd.getId());
+                //int end = formula.indexOf(")", start);
+                int depth = 0;
+                int end = -1;
+                int index = start+fd.getId().length()+1;
+                while (end<0 && index<formula.length())
+                {
+                	char c = formula.charAt(index);
+                	//E.info(c+"");
+                	if (c=='(') depth++;
+                	if (c==')')
+                	{
+                		if (depth==0)
+                			end=index;
+                		else
+                			depth--;
+                	}
+                	index++;
+                }
                 String orig = formula.substring(start, end+1);
                 E.info("orig: "+orig);
 
-                String[] args = orig.substring(orig.indexOf("(")+1,orig.indexOf(")")).split(",");
+                String[] args = orig.substring(orig.indexOf("(")+1,orig.lastIndexOf(")")).split(",");
 
 
                 for(int i=0;i<args.length;i++){
@@ -748,7 +787,7 @@ public class SBMLImporter  {
                 }
                 String newExp = "( "+ ASTNode.formulaToString(exp)+" )";
 
-                orig = orig.replace("(", "\\(").replace(")", "\\)");
+                orig = orig.replace("(", "\\(").replace(")", "\\)").replace("*", "\\*");
                 E.info("formula was: "+ formula+", replacing "+ orig+" with "+newExp+", at "+formula.indexOf(orig)+", id: "+fd.getId());
                 formula = formula.replaceAll(orig, newExp);
                 if (formula.startsWith("( ") && formula.endsWith(" )"))
@@ -760,7 +799,7 @@ public class SBMLImporter  {
         return formula;
     }
     
-    public static File convertSBMLToLEMSFile(File sbmlFile, float simDuration, float simDt, boolean comment) throws Exception
+    public static File convertSBMLToLEMSFile(File sbmlFile, float simDuration, float simDt, boolean comment) throws SBMLException, ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature
     {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
         //E.info("Generated: "+ lems.textSummary(true));
@@ -787,7 +826,7 @@ public class SBMLImporter  {
         return lemsFile;
     }
 
-    private static void runTest(File sbmlFile, float simDuration, float simDt) throws Exception
+    private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature
     {
     	File testFile = convertSBMLToLEMSFile(sbmlFile, simDuration, simDt, true);
 
@@ -806,6 +845,13 @@ public class SBMLImporter  {
     {
         E.setDebug(true);
 
+        String[] exprs = {"(4)!","((4)!+4)","( (5 + (4)!) +4)", "sin(g)", "((ceil(p1*S1))!*p2^(-1))"};
+        for (String expr: exprs){
+        	E.info("------------------------");
+        	String rep = replaceFactorial(expr);
+        	E.info("Expr: ["+expr+"] -> ["+rep+"]");
+        }
+        //System.exit(0);
         
     	FileResultWriterFactory.initialize();
 		DefaultLogger.initialize();
@@ -867,6 +913,8 @@ public class SBMLImporter  {
             int completed = 0;
             int failedMismatch = 0;
             int failedError = 0;
+            int unsupported = 0;
+            
             int notFound = 0;
             int skipped = 0;
 
@@ -874,8 +922,8 @@ public class SBMLImporter  {
             int numToStop = 21;
             numToStop = 1123;
             //numToStop = 100;
-            //numToStart = 469;
-            //numToStop = 400;
+            //numToStart = 170;
+            //numToStop = 200;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -889,7 +937,6 @@ public class SBMLImporter  {
             exitOnMismatch = false;
 
             boolean skipFuncDefinitions = false;
-            boolean skipFuncUnsupported = true;
             
             boolean skipUnitDefinitions = false;
             boolean skipAlgebraicRules = true;
@@ -1108,6 +1155,12 @@ public class SBMLImporter  {
 
                             reader.close();
                             
+                        } catch(UnsupportedSBMLFeature e){
+                            E.info("\n\nSBML test: "+testCase+" can't be run due to unsupported feature!!\n");
+                            e.printStackTrace();
+                            errors.append(testCase+": "+ e.getMessage()+"\n");
+
+                            unsupported++;
                         } catch(Exception e){
                             E.info("\n\nSBML test: "+testCase+" failed!!\n");
                             e.printStackTrace();
@@ -1122,12 +1175,15 @@ public class SBMLImporter  {
                 }
 
             }
+            
             int tried = successful+failedMismatch+failedError;
+            
             E.info("\nAll finished!\n"
                     + "  Number successful:          "+successful+" out of "+tried+" ("+(float)successful*100 / (tried)+" %)\n"
                     + "  Number completed:           "+completed+"\n"
                     + "  Number failed (mismatch):   "+failedMismatch+"\n"
                     + "  Number failed (exception):  "+failedError+"\n"
+                    + "  Number unsupported:         "+unsupported+"\n"
                     + "  Number skipped:             "+skipped+"\n"
                     + "  Number not found:           "+notFound+"\n\n"
                     + "  Range:                      "+numToStart+" -> "+numToStop+"\n\n"
@@ -1140,11 +1196,46 @@ public class SBMLImporter  {
 
     }
 
-    public static String replaceOperatorsAndTime(String formula)
+    public static String replaceTime(String formula)
+    {
+        String timeReplaced = formula.replaceAll("time ", "(t * "+tscaleName+") ").replaceAll(" time", " (t * "+tscaleName+")");
+        return timeReplaced;
+    }
+    public static String replaceOperators(String formula)
     {
         String opsReplaced = formula.replaceAll("<=", ".leq.").replaceAll(">=", ".geq.").replaceAll("<", ".lt.").replaceAll(">", ".gt.").replaceAll("=", ".eq.");
-        String timeReplaced = opsReplaced.replaceAll("time ", "(t * "+tscaleName+") ").replaceAll(" time", " (t * "+tscaleName+")");
-        return timeReplaced;
+    
+        return opsReplaced;
+    }
+
+    public static String replaceFactorial(String formula){
+        while (formula.contains(")!")){
+        	int index = formula.indexOf(")!");
+        	int indexStart = -1;
+        	int depth = 0;
+        	for (int i =index+1; i<formula.length();i++) {
+        		char c = formula.charAt(i);
+        		if (c == ')') depth++;
+        		if (c == '(') depth--;
+        	}
+        	int depth2 = 0;
+        	for (int i =0; i<index;i++) {
+        		char c = formula.charAt(i);
+        		if (c == '('){
+        			if (depth2==depth)
+        			{
+        				indexStart = i;
+        			}
+        			depth2++;
+        		}
+        		if (c == ')') depth2--;
+        		
+        	}
+        	E.info("Index: "+index+", depth: "+depth+", depth2: "+depth2+", indexStart: "+indexStart);
+        	formula = formula.replaceFirst("\\)!", ")");
+        	formula = formula.substring(0,indexStart)+"factorial("+formula.substring(indexStart+1);
+        }
+        return formula;
     }
 }
 
