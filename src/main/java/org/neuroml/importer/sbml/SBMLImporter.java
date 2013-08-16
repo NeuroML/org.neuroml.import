@@ -412,12 +412,13 @@ public class SBMLImporter  {
 
                 TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+formula +")");
                 dyn.timeDerivatives.add(td);
-            }
-            if (r.isAssignment()){
+            } else if (r.isAssignment()){
                 Dimension speciesDim = noDim;
                 AssignmentRule ar = (AssignmentRule)r;
                 
                 DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
+                E.info("DerivedVariable: "+dv);
+                
                 dyn.derivedVariables.add(dv);
 
                 formula = replaceInFormula(formula, initVals);
@@ -445,6 +446,8 @@ public class SBMLImporter  {
 
                 //TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+ rr.getFormula()+")");
                 //b.timeDerivatives.add(td);
+            } else if (r.isAlgebraic()){
+            	throw new UnsupportedSBMLFeature("Algebraic rules are not yet supported in the SBML -> LEMS converter!");
             }
         }
 
@@ -514,6 +517,8 @@ public class SBMLImporter  {
             E.info("formula now: "+formula);
             String rateDvName = "rate__"+reaction.getId();
             DerivedVariable dv = new DerivedVariable(rateDvName, noDim, formula);
+            E.info("DerivedVariable: "+dv);
+
             dyn.derivedVariables.add(dv);
             
             for (SpeciesReference product: reaction.getListOfProducts()){
@@ -874,7 +879,8 @@ public class SBMLImporter  {
         sbmlFile = new File(srcDir+"/Simple3Species.xml");
 
         sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
-        sbmlFile = new File(srcDir+"/BIOMD0000000118_SBML-L2V4.xml");
+        
+        sbmlFile = new File(srcDir+"/BIOMD0000000138_SBML-L3V1.xml");
         
         
         boolean overrideLocalSTS = true;
@@ -892,8 +898,9 @@ public class SBMLImporter  {
         float len = 10;
         if (sbmlFile.getName().indexOf("Izh")>=0) len = 140;
         if (sbmlFile.getName().indexOf("0039")>=0) len = 50;
-        if (sbmlFile.getName().indexOf("00118")>=0) len = 100;
+        if (sbmlFile.getName().indexOf("00118")>=0) len = 500;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
+        if (sbmlFile.getName().indexOf("00138")>=0) len = 3000;
         float dt = (float)(len/20000.0);
 
         HashMap<Integer, String> problematic = new HashMap<Integer, String>();
@@ -922,8 +929,8 @@ public class SBMLImporter  {
             int numToStop = 21;
             numToStop = 1123;
             //numToStop = 100;
-            //numToStart = 170;
-            //numToStop = 200;
+            //numToStart = 800;
+            //numToStop = 900;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
@@ -939,7 +946,7 @@ public class SBMLImporter  {
             boolean skipFuncDefinitions = false;
             
             boolean skipUnitDefinitions = false;
-            boolean skipAlgebraicRules = true;
+
             boolean skipDelays = true;
             
             //String version = "l2v4";
@@ -1023,11 +1030,6 @@ public class SBMLImporter  {
 
                             E.info("Model: "+model.getListOfUnitDefinitions().size());
 
-                            boolean containsAlgebRules = false;
-                            for(Rule r: model.getListOfRules()) {
-                            	if (r.isAlgebraic())
-                            		containsAlgebRules = true;
-                            }
                             boolean containsDelays = false;
                             for(Event e: model.getListOfEvents()) {
                             	if (e.getDelay()!=null)
@@ -1041,11 +1043,6 @@ public class SBMLImporter  {
 	                            skipped++;
                             } else if (model.getListOfUnitDefinitions().size()>0 && skipUnitDefinitions) {
                             	String infoMessage = "Skipping: "+testCase+" due to unit definitions";
-	                            E.info(infoMessage);
-	                            errors.append(testCase+": "+ infoMessage+"\n");
-	                            skipped++;
-                            } else if (containsAlgebRules && skipAlgebraicRules) {
-                            	String infoMessage = "Skipping: "+testCase+" due to AlgebraicRules";
 	                            E.info(infoMessage);
 	                            errors.append(testCase+": "+ infoMessage+"\n");
 	                            skipped++;
@@ -1198,7 +1195,7 @@ public class SBMLImporter  {
 
     public static String replaceTime(String formula)
     {
-        String timeReplaced = formula.replaceAll("time ", "(t * "+tscaleName+") ").replaceAll(" time", " (t * "+tscaleName+")");
+        String timeReplaced = replaceInFormula(formula, "time", "(t * "+tscaleName+")");
         return timeReplaced;
     }
     public static String replaceOperators(String formula)
