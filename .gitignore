@@ -20,6 +20,9 @@ src/test/resources/*.py
 src/test/resources/*.log
 src/test/resources/*.png
 src/test/resources/*.csv
+src/test/resources/*.json
+src/test/resources/*.m
+
 
 src/test/resources/tmp
 
