@@ -316,7 +316,7 @@ public class SBMLImporter  {
 	                    E.info("Setting init param: "+p.getId() +" = "+p.getValue());
 	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
 	                    os.stateAssignments.add(sa);
-                	} else {
+                	} else if (p.isConstant()) {
                 		//E.info("Problem with "+sbmlFile+"\n");
                         //System.exit(-1);
 
@@ -745,14 +745,16 @@ public class SBMLImporter  {
         
         for (FunctionDefinition fd: functions){
 
-            ASTNode exp0 = fd.getBody();
-            ASTNode exp = (ASTNode)exp0.clone();
-            E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp);
             int count=0;
             String origFormula = new String(formula);
             
 
             while (formula.contains(fd.getId())){
+                E.info("Working on formula: "+ formula);
+
+                ASTNode exp0 = fd.getBody();
+                ASTNode exp = (ASTNode)exp0.clone();
+                E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp);
                 count++;
                 if (count>20) throw new ParseException("Problem with formula: "+origFormula);
                 
@@ -784,7 +786,7 @@ public class SBMLImporter  {
                 for(int i=0;i<args.length;i++){
                     String arg = args[i].trim();
                     ASTNode a = fd.getArgument(i);
-                    E.info("replacing <"+a+"> by <"+arg+">");
+                    E.info("replacing <"+a+"> by <"+arg+"> in "+exp);
                     ASTNode newA = JSBML.parseFormula(arg);
                     //E.info(exp.toFormula());
                     exp.replaceArgument(a.toString(), newA);
@@ -929,8 +931,8 @@ public class SBMLImporter  {
             int numToStop = 21;
             numToStop = 1123;
             //numToStop = 100;
-            //numToStart = 800;
-            //numToStop = 900;
+            //numToStart = 157;
+            //numToStop = 700;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
