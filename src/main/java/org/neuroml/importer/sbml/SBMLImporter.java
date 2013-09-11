@@ -13,6 +13,8 @@ import java.util.HashMap;
 import javax.xml.stream.XMLStreamException;
 
 import org.lemsml.jlems.core.expression.ParseError;
+import org.lemsml.jlems.core.expression.ParseTree;
+import org.lemsml.jlems.core.expression.Parser;
 import org.lemsml.jlems.core.logging.E;
 import org.lemsml.jlems.core.run.ConnectionError;
 import org.lemsml.jlems.core.run.RuntimeError;
@@ -80,6 +82,9 @@ public class SBMLImporter  {
 
     static final Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
     static final Unit noUnit = new Unit(Unit.NO_UNIT, "", noDim);
+    
+    
+    static Parser lemsExpressionParser = new Parser();
 	
 	
     public SBMLImporter() {
@@ -104,6 +109,25 @@ public class SBMLImporter  {
     	return dims.get(dim);
     }
     
+    private static String astToString(ASTNode ast) throws XMLStreamException, ParseError, ContentError
+    {
+        return astToString(ast, false);
+    }
+    
+    private static String astToString(ASTNode ast, boolean condition) throws XMLStreamException, ParseError, ContentError
+    {
+        /*String mml = JSBML.writeMathMLToString(ast);
+        E.info("MathML: "+mml);
+        String mml2 = mml.replaceAll("cn type=\"integer\"", "cn type=\"real\"");
+        E.info("MathML2: "+mml2);
+        ASTNode ast2 = JSBML.readMathMLFromString(mml2);*/
+        
+        String expression = JSBML.formulaToString(ast);
+        //E.info("expression: "+expression);
+          
+        return expression;
+        
+    }
 
 
     @SuppressWarnings("deprecation")
@@ -378,7 +402,7 @@ public class SBMLImporter  {
         for (InitialAssignment ia: model.getListOfInitialAssignments()) {
         	String var = ia.getVariable();
         	
-        	String formula = ia.getFormula();
+        	String formula = astToString(ia.getMath());
 
             E.info("ct.constants: "+ct.constants);
             
@@ -400,7 +424,7 @@ public class SBMLImporter  {
 
         for (Rule r: model.getListOfRules()){
 
-            String formula = r.getFormula();
+            String formula = astToString(r.getMath());
             
             formula = handleFormula(formula, functions);
    
@@ -452,17 +476,17 @@ public class SBMLImporter  {
         }
 
         for (Event e: model.getListOfEvents()){
-            String testFormula = e.getTrigger().getFormula();
+            String testFormula = astToString(e.getTrigger().getMath(), true);
             E.info("Adding event: "+e+", test: "+testFormula);
 
-            String test = handleFormula(testFormula, functions);
-            test = replaceOperators(test);
+            String test = handleFormula(testFormula, functions, true);
+            //test = replaceOperators(test);
             E.info("Test tidied to: "+test);
 
             OnCondition oc = new OnCondition(test);
             dyn.onConditions.add(oc);
             for (EventAssignment ea: e.getListOfEventAssignments() ){
-                String formula = ea.getFormula();
+                String formula = astToString(ea.getMath());
 
                 formula = handleFormula(formula, functions);
 
@@ -504,7 +528,7 @@ public class SBMLImporter  {
             	speciesScales.put(s.getId(), "("+s.getId()+"/"+s.getCompartment()+")");
             }
 
-            String formula = "("+kl.getFormula()+")";
+            String formula = "("+astToString(kl.getMath())+")";
             E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" ud "+kl.containsUndeclaredUnits());
 
             formula = handleFormula(formula, functions);
@@ -600,7 +624,7 @@ public class SBMLImporter  {
 
             disp1.setParameter("xmin", "0");
             disp1.setParameter("xmax", simDuration+"");
-            disp1.setParameter("ymin", "0.001");
+            disp1.setParameter("ymin", "1");
             disp1.setParameter("ymax", "0");
 
             sim1.addToChildren("displays", disp1);
@@ -730,12 +754,27 @@ public class SBMLImporter  {
         return formula.trim();
     }
 
-    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException, UnsupportedSBMLFeature {
+    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError {
+        return handleFormula(formula, functions, false);
+    }
+
+    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions, boolean condition) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError {
+        
     	checkFormula(formula);
     	String formula0 = replaceTime(formula);
     	String formula1 = replaceFactorial(formula0);
     	String formula2 = replaceFunctionDefinitions(formula1, functions);
-    	return formula2;
+        
+        if (condition)
+        {
+            return replaceOperators(formula2);
+        }
+        else
+        {
+            ParseTree pt = lemsExpressionParser.parseExpression(formula2);
+    
+            return pt.toExpression();
+        }
     }
     
     private static void checkFormula(String formula) throws UnsupportedSBMLFeature {
@@ -1215,6 +1254,7 @@ public class SBMLImporter  {
     
         return opsReplaced;
     }
+    
 
     public static String replaceFactorial(String formula){
         while (formula.contains(")!")){
