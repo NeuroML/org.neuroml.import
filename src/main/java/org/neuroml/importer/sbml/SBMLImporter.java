@@ -523,6 +523,10 @@ public class SBMLImporter  {
             
             for (SpeciesReference product: reaction.getListOfProducts()){
                 String s = product.getSpecies();
+                if (product.getId().length()>0)
+                {
+                	throw new UnsupportedSBMLFeature("stoichiometryMath/using id in speciesReference not supported!");
+                }
                 Species sp = model.getListOfSpecies().get(s);
 
                 if (!sp.getBoundaryCondition()) {
@@ -544,6 +548,10 @@ public class SBMLImporter  {
             for (SpeciesReference reactant: reaction.getListOfReactants()){
 
                 String s = reactant.getSpecies();
+                if (reactant.getId().length()>0)
+                {
+                	throw new UnsupportedSBMLFeature("stoichiometryMath/using id in speciesReference not supported!");
+                }
                 Species sp = model.getListOfSpecies().get(s);
 
                 if (!sp.getBoundaryCondition()) {
@@ -557,6 +565,7 @@ public class SBMLImporter  {
                     }
                     
                     if (reactant.isSetStoichiometry() && reactant.getStoichiometry()!=1){
+
                         sb.append(" * "+reactant.getStoichiometry()+"");
                     }
                 }
@@ -931,7 +940,7 @@ public class SBMLImporter  {
             int numToStop = 21;
             numToStop = 1123;
             //numToStop = 100;
-            //numToStart = 157;
+            //numToStart = 1065;
             //numToStop = 700;
             
             int numLemsPoints = 30000;

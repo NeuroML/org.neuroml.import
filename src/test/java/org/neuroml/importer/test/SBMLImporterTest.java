@@ -57,6 +57,12 @@ public class SBMLImporterTest extends TestCase {
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000184.xml");
         convertSBMLtoLEMSFile(sbmlFile, 1000);
 	}
+    
+	public void testBio185()  throws Exception {
+
+        File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000185.xml");
+        convertSBMLtoLEMSFile(sbmlFile, 50);
+	}
 	
 	/*
 	public void testBio118()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
