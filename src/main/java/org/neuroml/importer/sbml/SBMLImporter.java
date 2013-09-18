@@ -624,8 +624,8 @@ public class SBMLImporter  {
 
             disp1.setParameter("xmin", "0");
             disp1.setParameter("xmax", simDuration+"");
-            disp1.setParameter("ymin", "1");
-            disp1.setParameter("ymax", "0");
+            disp1.setParameter("ymin", "0");
+            disp1.setParameter("ymax", "1");
 
             sim1.addToChildren("displays", disp1);
             
