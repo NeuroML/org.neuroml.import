@@ -24,7 +24,7 @@ src/test/resources/*.png
 src/test/resources/*.csv
 src/test/resources/*.json
 src/test/resources/*.m
-
+src/test/resources/*.sbml
 
 src/test/resources/tmp
 
