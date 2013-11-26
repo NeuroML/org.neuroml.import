@@ -81,6 +81,7 @@ public class SBMLImporter  {
 	static boolean useUnits = false;
 
     static final Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
+    
     static final Unit noUnit = new Unit(Unit.NO_UNIT, "", noDim);
     
     
@@ -109,26 +110,6 @@ public class SBMLImporter  {
     	return dims.get(dim);
     }
     
-    private static String astToString(ASTNode ast) throws XMLStreamException, ParseError, ContentError
-    {
-        return astToString(ast, false);
-    }
-    
-    private static String astToString(ASTNode ast, boolean condition) throws XMLStreamException, ParseError, ContentError
-    {
-        /*String mml = JSBML.writeMathMLToString(ast);
-        E.info("MathML: "+mml);
-        String mml2 = mml.replaceAll("cn type=\"integer\"", "cn type=\"real\"");
-        E.info("MathML2: "+mml2);
-        ASTNode ast2 = JSBML.readMathMLFromString(mml2);*/
-        
-        String expression = JSBML.formulaToString(ast);
-        //E.info("expression: "+expression);
-          
-        return expression;
-        
-    }
-
 
     @SuppressWarnings("deprecation")
 	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
@@ -174,6 +155,8 @@ public class SBMLImporter  {
         ct.dynamicses.add(dyn);
 
         OnStart os = new OnStart();
+        
+        ArrayList<String> timeAliases = new ArrayList<String>();
 
         
         for(UnitDefinition ud: model.getListOfUnitDefinitions()){
@@ -229,7 +212,6 @@ public class SBMLImporter  {
             
             Unit compUnit = getUnit(c.getUnits(), units);
   
-            
             String size = c.getSize()+"";
             if (!c.isSetSize())
             	size="1";
@@ -238,8 +220,16 @@ public class SBMLImporter  {
             
             size = size+" "+compUnit.getSymbol();
             
+            boolean isInitAss = false;
+            
+            for(InitialAssignment ia: model.getListOfInitialAssignments()) {
+        		if ( ia.getVariable().equals(c.getId()) ) {
+        			isInitAss = true;
+        		}
+            }
+            
 
-            if (c.isConstant()){
+            if (c.isConstant() && !isInitAss){
                 Constant constComp = new Constant(c.getId(), compDim, size);
                 ct.constants.add(constComp);
             } else {
@@ -266,6 +256,7 @@ public class SBMLImporter  {
                 		}
                 	}
                 }
+                
                 for(InitialAssignment ia: model.getListOfInitialAssignments()) {
             		if ( ia.getVariable().equals(c.getId()) ) {
                         isStateVar = true;
@@ -304,6 +295,7 @@ public class SBMLImporter  {
 
                 boolean isStateVar = false;
                 boolean hasRateRule = false;
+                boolean hasAssRule = false;
 
                 for(Rule r: model.getListOfRules()) {
                 	if (r.isRate()) {
@@ -311,6 +303,12 @@ public class SBMLImporter  {
                 		if ( rr.getVariable().equals(p.getId()) ) {
                             isStateVar = true;
                             hasRateRule = true;
+                		}
+                	}
+                    else if (r.isAssignment()) {
+                		AssignmentRule ar = (AssignmentRule)r;
+                		if ( ar.getVariable().equals(p.getId()) ) {
+                            hasAssRule = true;
                 		}
                 	}
                 }
@@ -324,6 +322,8 @@ public class SBMLImporter  {
                 
                 if (isInitAss)
                     isStateVar = true;
+                
+                E.info("  ---- Param: "+p.getId()+", isStateVar: "+isStateVar+", hasRateRule: "+hasRateRule+", isInitAss: "+isInitAss);
                 
                 if (isStateVar) {
                     StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
@@ -340,7 +340,8 @@ public class SBMLImporter  {
 	                    E.info("Setting init param: "+p.getId() +" = "+p.getValue());
 	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
 	                    os.stateAssignments.add(sa);
-                	} else if (p.isConstant()) {
+                	} else if (!hasAssRule) {
+	                    E.info("! p.isSetValue()");
                 		//E.info("Problem with "+sbmlFile+"\n");
                         //System.exit(-1);
 
@@ -402,11 +403,10 @@ public class SBMLImporter  {
         for (InitialAssignment ia: model.getListOfInitialAssignments()) {
         	String var = ia.getVariable();
         	
-        	String formula = astToString(ia.getMath());
 
             E.info("ct.constants: "+ct.constants);
             
-        	formula = handleFormula(formula, functions);
+        	String formula = handleFormula(ia.getMath(), functions, timeAliases);
             formula = replaceInFormula(formula, initVals);
             
             if (ct.constants.getByName(var)!=null)  {  // e.g. a compartment which is constant=true... case 00027
@@ -423,72 +423,81 @@ public class SBMLImporter  {
 
 
         for (Rule r: model.getListOfRules()){
-
-            String formula = astToString(r.getMath());
             
-            formula = handleFormula(formula, functions);
+            String formula = handleFormula(r.getMath(), functions, timeAliases);
    
 
             E.info("Adding rule: "+r);
 
             if (r.isRate()){
                 RateRule rr = (RateRule)r;
-
-                TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+formula +")");
+                boolean isSpecies = model.getSpecies(rr.getVariable())!=null;
+                String scaling = "";
+                if (isSpecies)
+                    scaling = " * "+model.getSpecies(rr.getVariable()).getCompartment();
+                TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName()+ scaling +" * ("+formula +")");
+                
                 dyn.timeDerivatives.add(td);
+                
             } else if (r.isAssignment()){
-                Dimension speciesDim = noDim;
+                
                 AssignmentRule ar = (AssignmentRule)r;
                 
-                DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
-                E.info("DerivedVariable: "+dv);
-                
-                dyn.derivedVariables.add(dv);
-
-                formula = replaceInFormula(formula, initVals);
-                
-                StateAssignment sa = null;
-                //E.info("Sas: "+os.getStateAssignments());
-                if (os.getStateAssignments()!=null) {
-	                for (StateAssignment sa0: os.getStateAssignments()) {
-	                    //E.info("Sa: "+sa0);
-	                	if (sa0.getVariable().equals(ar.getVariable())) {
-		                    E.info("Replacing function for init: "+sa0.getVariable()+" = "+sa0.getValueExpression()
-		                    		+" with "+formula);
-	                		sa = sa0;
-	                	}
-	                }
-                }
-                
-                if (sa!=null) {
-                	sa.setValue(formula);
+                boolean isParameter = ct.parameters.getByName(ar.getVariable())!=null;
+                if (isParameter) {
+                    E.info("Resetting parameter: "+ar.getVariable()+" to: "+formula);
+                    comp.setParameter(ar.getVariable(), formula);
                 } else {
-                	///sa = new StateAssignment(ar.getVariable());
-                	///os.stateAssignments.add(sa);
-                	////sa.setValue(formula);
+                
+                    Dimension speciesDim = noDim;
+
+                    DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
+                    E.info("DerivedVariable: "+dv);
+
+                    dyn.derivedVariables.add(dv);
+
+                    formula = replaceInFormula(formula, initVals);
+
+                    StateAssignment sa = null;
+                    //E.info("Sas: "+os.getStateAssignments());
+                    if (os.getStateAssignments()!=null) {
+                        for (StateAssignment sa0: os.getStateAssignments()) {
+                            //E.info("Sa: "+sa0);
+                            if (sa0.getVariable().equals(ar.getVariable())) {
+                                E.info("Replacing function for init: "+sa0.getVariable()+" = "+sa0.getValueExpression()
+                                        +" with "+formula);
+                                sa = sa0;
+                            }
+                        }
+                    }
+
+                    if (sa!=null) {
+                        sa.setValue(formula);
+                    } else {
+                        ///sa = new StateAssignment(ar.getVariable());
+                        ///os.stateAssignments.add(sa);
+                        ////sa.setValue(formula);
+                    }
                 }
 
-                //TimeDerivative td = new TimeDerivative(rr.getVariable(), timeScale.getName() +" * ("+ rr.getFormula()+")");
-                //b.timeDerivatives.add(td);
             } else if (r.isAlgebraic()){
             	throw new UnsupportedSBMLFeature("Algebraic rules are not yet supported in the SBML -> LEMS converter!");
             }
         }
 
         for (Event e: model.getListOfEvents()){
-            String testFormula = astToString(e.getTrigger().getMath(), true);
-            E.info("Adding event: "+e+", test: "+testFormula);
 
-            String test = handleFormula(testFormula, functions, true);
+            String test = handleFormula(e.getTrigger().getMath(), functions, timeAliases, true);
+            E.info("Adding event: "+e+", test: "+test);
+            
             //test = replaceOperators(test);
             E.info("Test tidied to: "+test);
 
             OnCondition oc = new OnCondition(test);
             dyn.onConditions.add(oc);
             for (EventAssignment ea: e.getListOfEventAssignments() ){
-                String formula = astToString(ea.getMath());
 
-                formula = handleFormula(formula, functions);
+                String formula = handleFormula(ea.getMath(), functions, timeAliases);
 
                 StateAssignment sa = new StateAssignment(ea.getVariable(), formula);
                 oc.stateAssignments.add(sa);
@@ -528,10 +537,8 @@ public class SBMLImporter  {
             	speciesScales.put(s.getId(), "("+s.getId()+"/"+s.getCompartment()+")");
             }
 
-            String formula = "("+astToString(kl.getMath())+")";
+            String formula = handleFormula(kl.getMath(), functions, timeAliases);
             E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" ud "+kl.containsUndeclaredUnits());
-
-            formula = handleFormula(formula, functions);
       
             
             //
@@ -605,6 +612,15 @@ public class SBMLImporter  {
             TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+speciesTotalRates.get(s).toString()+") ");
 
             E.info(">>>> TimeDerivative "+td.getValueExpression());
+            dyn.timeDerivatives.add(td);
+        }
+        
+        for (String timeVarName: timeAliases) {
+            StateVariable sv = new StateVariable(timeVarName, noDim);
+            E.info(">>>> StateVariable "+sv);
+            dyn.stateVariables.add(sv);
+
+            TimeDerivative td = new TimeDerivative(sv.getName(), "1");
             dyn.timeDerivatives.add(td);
         }
 
@@ -753,12 +769,40 @@ public class SBMLImporter  {
         }
         return formula.trim();
     }
-
-    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError {
-        return handleFormula(formula, functions, false);
+    
+    
+    
+    private static String astNodeToString(ASTNode ast, boolean condition) throws XMLStreamException, ParseError, ContentError
+    {
+        //String mml = JSBML.writeMathMLToString(ast);
+        //E.info("MathML: "+mml);
+        /*String mml2 = mml.replaceAll("cn type=\"integer\"", "cn type=\"real\"");
+        E.info("MathML2: "+mml2);
+        ASTNode ast2 = JSBML.readMathMLFromString(mml2);*/
+        
+        String expression = JSBML.formulaToString(ast);
+        //E.info("expression: "+expression);
+          
+        return expression;
+        
     }
 
-    private static String handleFormula(String formula, ArrayList<FunctionDefinition> functions, boolean condition) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError {
+    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError, XMLStreamException {
+        return handleFormula(ast, functions, timeAliases, false);
+    }
+
+    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases, boolean condition) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError, XMLStreamException {
+        
+        String formula = astNodeToString(ast,condition);
+        String mml = JSBML.writeMathMLToString(ast);
+        //E.info("MathML: "+mml);
+        if (mml.indexOf("csymbol")>=0 && mml.indexOf("http://www.sbml.org/sbml/symbols/time")>=0) {
+            int start = mml.indexOf("http://www.sbml.org/sbml/symbols/time");
+            String varName = mml.substring(mml.indexOf(">", start)+1, mml.indexOf("<", start)).trim();
+            
+            if (!timeAliases.contains(varName)) 
+                timeAliases.add(varName);
+        }
         
     	checkFormula(formula);
     	String formula0 = replaceTime(formula);
@@ -858,7 +902,7 @@ public class SBMLImporter  {
     {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
         //E.info("Generated: "+ lems.textSummary(true));
-        //E.info("Generated ct: "+ lems.getComponentTypeByName("case00027").summary());
+        //E.info("Generated ct: "+ lems.getComponentTypeByName("case00471"));
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
         
@@ -902,9 +946,9 @@ public class SBMLImporter  {
 
         String[] exprs = {"(4)!","((4)!+4)","( (5 + (4)!) +4)", "sin(g)", "((ceil(p1*S1))!*p2^(-1))"};
         for (String expr: exprs){
-        	E.info("------------------------");
+        	//E.info("------------------------");
         	String rep = replaceFactorial(expr);
-        	E.info("Expr: ["+expr+"] -> ["+rep+"]");
+        	//E.info("Expr: ["+expr+"] -> ["+rep+"]");
         }
         //System.exit(0);
         
@@ -976,9 +1020,9 @@ public class SBMLImporter  {
             int skipped = 0;
 
             int numToStart = 1; 
-            int numToStop = 21;
-            numToStop = 1123;
-            //numToStop = 100;
+            int numToStop = 200;
+            numToStop = 1180;
+            //numToStop = 500;
             //numToStart = 1065;
             //numToStop = 700;
             
@@ -1149,6 +1193,9 @@ public class SBMLImporter  {
 	
 	                            int ir = 0;
 	                            boolean match = true;
+                                
+                                float minFactor = 1e-12f;
+                                float[] maxAsbValues = new float[cols.size()];
 	
 	                            for (int it=0;it<timeTarg.length;it++){
 	                                float tt = timeTarg[it];
@@ -1167,16 +1214,23 @@ public class SBMLImporter  {
 	                                        float[] dataTarg = targets.get(dataName);
 	                                        float t = dataTarg[it];
 	                                        float r = data[c][ir];
-	                                        //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t);
+                                            maxAsbValues[c] = Math.max(maxAsbValues[c], Math.abs(t));
+	                                        //E.info("--- Comparing val for "+dataName+" ("+c+") simulated: "+r+" against target "+t+", max so far: "+maxAsbValues[c]);
 	                                        if (t!=0 && r!=0){
-	                                            float diff = Math.abs((t-r)/t);
-	                                            if (diff <=tolerance)
+	                                            float diffAbs = Math.abs(t-r);
+	                                            float diffFract = diffAbs/t;
+	                                            if (diffFract <=tolerance)
 	                                            {
 	                                                //E.info("---   Points match: Comparing val for "+dataName+" simulated: "+r+" against target "+t);
 	                                            }
+                                                else if ( (maxAsbValues[c]*diffAbs) < minFactor)
+	                                            {
+	                                                E.info("---   Points DON'T match at time "+tt+" BUT ALLOWING because much smaller than max absolute value ("+maxAsbValues[c]+"): Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diffFract);
+	                                                //match = false;
+	                                            }
 	                                            else
 	                                            {
-	                                                E.info("---   Points DON'T match at time "+tt+": Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diff);
+	                                                E.info("---   Points DON'T match at time "+tt+": Comparing val for "+dataName+" simulated: "+r+" against target "+t+ ", diff aimed at: "+tolerance+", real diff: "+ diffFract);
 	                                                match = false;
 	                                            }
 	                                        }
@@ -1279,7 +1333,7 @@ public class SBMLImporter  {
         		if (c == ')') depth2--;
         		
         	}
-        	E.info("Index: "+index+", depth: "+depth+", depth2: "+depth2+", indexStart: "+indexStart);
+        	//E.info("Index: "+index+", depth: "+depth+", depth2: "+depth2+", indexStart: "+indexStart);
         	formula = formula.replaceFirst("\\)!", ")");
         	formula = formula.substring(0,indexStart)+"factorial("+formula.substring(indexStart+1);
         }
