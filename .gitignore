@@ -28,4 +28,5 @@ src/test/resources/*.sbml
 
 src/test/resources/tmp
 
+biomodels
 Errors.txt
