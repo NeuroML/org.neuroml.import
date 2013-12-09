@@ -4,7 +4,7 @@
 <!-- Wed Sep 04 09:34:57 BST 2013                      -->
 <!-- http://www.ebi.ac.uk/biomodels/                   -->
 
-<sbml xmlns="http://www.sbml.org/sbml/level2/version3" level="2" metaid="metaid_0000001" version="3">
+<sbml xmlns="http://www.sbml.org/sbml/level2/version3" level="2" metaid="metaid_0000001" version="3"  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sbml.org/sbml/level2/version3 http://sbml.org/Special/xml-schemas/sbml-l2v3-schema/sbml.xsd">
   <model id="Locke2008_Circadian_Clock" name="Locke2008_Circadian_Clock" metaid="metaid_0000002">
     <notes>
       <body xmlns="http://www.w3.org/1999/xhtml">
@@ -238,17 +238,15 @@
       <parameter id="k7" metaid="metaid_0000019" value="0.2282" units="hr_1"/>
       <parameter id="v_8" metaid="metaid_0000020" value="3.5216" units="nM_hr_1"/>
       <parameter id="K8" metaid="metaid_0000021" value="7.4519" units="nM"/>
+      <parameter id="one_nM"  value="1" units="nM"/>
+      <parameter id="one_half"  value="0.5" units="dimensionless"/>
     </listOfParameters>
     <listOfRules>
       <assignmentRule metaid="metaid_0000032" variable="F">
         <math xmlns="http://www.w3.org/1998/Math/MathML">        
           <apply>
             <times/>
-            <apply>
-              <divide/>
-              <cn type="integer"> 1 </cn>
-              <cn type="integer"> 2 </cn>
-            </apply>
+            <ci> one_half </ci>
             <apply>
               <plus/>
               <ci> V1 </ci>
@@ -272,7 +270,7 @@
             </rdf:Description>
           </rdf:RDF>
         </annotation>
-              <listOfProducts>
+        <listOfProducts>
           <speciesReference species="X1" metaid="_198246"/>
         </listOfProducts>
         <listOfModifiers>
@@ -288,7 +286,11 @@
                 <ci> v_1 </ci>
                 <apply>
                   <power/>
-                  <ci> K1 </ci>
+                  <apply>
+                    <divide/>
+                    <ci> K1 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
               </apply>
@@ -296,12 +298,20 @@
                 <plus/>
                 <apply>
                   <power/>
-                  <ci> K1 </ci>
+                  <apply>
+                    <divide/>
+                    <ci> K1 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
                 <apply>
                   <power/>
-                  <ci> Z1 </ci>
+                  <apply>
+                    <divide/>
+                    <ci> Z1 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
               </apply>
@@ -613,21 +623,33 @@
                 <ci> compartment </ci>
                 <ci> v_1 </ci>
                 <apply>
-                  <power/>
-                  <ci> K1 </ci>
+                  <power/>                  
+                  <apply>
+                    <divide/>
+                    <ci> K1 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
               </apply>
               <apply>
                 <plus/>
                 <apply>
-                  <power/>
-                  <ci> K1 </ci>
+                  <power/>                  
+                  <apply>
+                    <divide/>
+                    <ci> K1 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
                 <apply>
-                  <power/>
-                  <ci> Z2 </ci>
+                  <power/>                  
+                  <apply>
+                    <divide/>
+                    <ci> Z2 </ci>
+                    <ci> one_nM </ci>
+                  </apply>
                   <ci> n </ci>
                 </apply>
               </apply>
