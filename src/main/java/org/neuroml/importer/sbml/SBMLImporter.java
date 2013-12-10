@@ -59,7 +59,7 @@ import org.sbml.jsbml.JSBML;
 import org.sbml.jsbml.KineticLaw;
 import org.sbml.jsbml.LocalParameter;
 import org.sbml.jsbml.Model;
-import org.sbml.jsbml.Parameter;
+import org.sbml.jsbml.Parameter; 
 import org.sbml.jsbml.RateRule;
 import org.sbml.jsbml.Reaction;
 import org.sbml.jsbml.Rule;
@@ -73,9 +73,15 @@ import org.sbml.jsbml.text.parser.ParseException;
 
 public class SBMLImporter  {
 
-	static String DIM_SUFFIX = "_dimension";
-	static String UNIT_SUFFIX = "_unit";
-	static String INIT_PREFIX = "init_";
+	static final String DIM_SUFFIX = "_dimension";
+	//static final String UNIT_SUFFIX = "_unit";
+	static final String INIT_PREFIX = "init_";
+    
+    static final String DEFAULT_SUBSTANCE_UNIT_NAME = "substance";
+    static final String DEFAULT_TIME_UNIT_NAME = "time";
+    
+    
+    static final String DEFAULT_VOLUME_UNIT = "litre";
 
 	//static boolean useUnits = true;
 	static boolean useUnits = false;
@@ -98,18 +104,51 @@ public class SBMLImporter  {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
     }
 
-    private static Unit getUnit(String unit, HashMap<String, org.lemsml.jlems.core.type.Unit> units) {
+    private static Unit getLemsUnit(String unit, HashMap<String, org.lemsml.jlems.core.type.Unit> units) {
     	if (unit==null || !units.containsKey(unit))
     		return noUnit;
     	return units.get(unit);
     }
     
+    
     private static Dimension getDim(String dim, HashMap<String, Dimension> dims) {
-    	if (dim==null || !dims.containsKey(dim))
+    	if (dim==null || !dims.containsKey(dim)) {
     		return noDim;
+        }
     	return dims.get(dim);
     }
     
+    private static Unit getUnit(String unit, HashMap<String, Unit> units) {
+    	if (unit==null || !units.containsKey(unit))
+    		return noUnit;
+    	return units.get(unit);
+    }
+    
+    
+    private static String getSpeciesUnits(Species s) {
+        if (s.getUnits()!=null && s.getUnits().length() > 0 )
+            return s.getUnits();
+        
+        return DEFAULT_SUBSTANCE_UNIT_NAME;
+    }
+    
+    private static String getCompartmentUnits(Compartment c) {
+        if (!useUnits)
+            return Unit.NO_UNIT;
+        
+        if (c.getUnits()!=null && c.getUnits().length() > 0 )
+            return c.getUnits();
+        
+        return DEFAULT_VOLUME_UNIT;
+    }
+    
+    
+    private static String getTimeUnits(Model m) {
+        if (m.getTimeUnits()!=null && m.getTimeUnits().length()>0)
+            return m.getTimeUnits();
+        else 
+            return DEFAULT_TIME_UNIT_NAME;
+    }
 
     @SuppressWarnings("deprecation")
 	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
@@ -150,7 +189,6 @@ public class SBMLImporter  {
         if (addModel)
             lems.addComponent(comp);
 
-
         Dynamics dyn = new Dynamics();
         ct.dynamicses.add(dyn);
 
@@ -158,67 +196,121 @@ public class SBMLImporter  {
         
         ArrayList<String> timeAliases = new ArrayList<String>();
 
-        
-        for(UnitDefinition ud: model.getListOfUnitDefinitions()){
-            Dimension newDim = new Dimension(ud.getId()+DIM_SUFFIX);
-            Unit newUnit = new Unit(ud.getId()+UNIT_SUFFIX, ud.getId()+UNIT_SUFFIX, newDim);
-            
-            for (org.sbml.jsbml.Unit u: ud.getListOfUnits()){
-            	String kind = u.getKind().getName().toLowerCase();
-            	if (kind.equals("ampere")) {
-            		newDim.setI(1);
-            	} else if (u.getKind().equals("farad")) {
-            		newDim.setM(-1);
-            		newDim.setL(-2);
-            		newDim.setT(4);
-            		newDim.setI(2);
-            	} else if (kind.equals("litre")) {
-            		newDim.setM(3);
-            		newUnit.setPower(-3);
-            	} else if (kind.equals("metre")) {
-            		newDim.setM(1);
-            		newUnit.setPower(1);
-            	} else if (kind.equals("mole")) {
-            		newDim.setN(1);
-            	} else if (kind.equals("second")) {
-            		newDim.setT(1);
-            	} else {
-            		//TODO: Add all unit kinds from section 4.4.2 in SBML specs: http://sbml.org/Documents/Specifications
-            		System.err.print("Add more unit definitions! Missing: "+kind);
-            		if (useUnits)
-            			System.exit(1);
-            		
-            	}
+        if (useUnits) {
+
+            for(UnitDefinition ud: model.getListOfUnitDefinitions()){
+                Dimension newDim = new Dimension(ud.getId()+DIM_SUFFIX);
+                String unitName = ud.getName().replaceAll(" ", "_");
+                
+                Unit newUnit = new Unit(unitName, unitName, newDim);
+
+                int power = 0;
+                double scaleFactor = 1;
+                for (org.sbml.jsbml.Unit u: ud.getListOfUnits()){
+                    power = power + u.getScale();
+                    scaleFactor = scaleFactor * u.getMultiplier();
+                    int exponent = (int)u.getExponent();
+                    if (exponent!=u.getExponent())
+                        throw new SBMLException("Only integer exponents allowed in SBML units");
+                    
+                    String kind = u.getKind().getName().toLowerCase();
+                    
+                E.info("    --- Unit: "+u+", kind: "+kind);
+                    if (kind.equals("ampere")) {
+                        newDim.setI(newDim.getI() + exponent * 1);
+                    } else if (kind.equals("farad")) {
+                        newDim.setM(newDim.getM() + exponent * -1);
+                        newDim.setL(newDim.getL() + exponent * -2);
+                        newDim.setT(newDim.getT() + exponent * 4);
+                        newDim.setI(newDim.getI() + exponent * 2);
+                    } else if (kind.equals("litre")) {
+                        newDim.setL(newDim.getL() + exponent * 3);
+                    } else if (kind.equals("metre")) {
+                        newDim.setM(newDim.getM() + exponent * 1);
+                    } else if (kind.equals("mole")) {
+                        newDim.setN(newDim.getN() + exponent * 1);
+                    } else if (kind.equals("second")) {
+                        newDim.setT(newDim.getT() + exponent * 1);
+                    } else {
+                        //TODO: Add all unit kinds from section 4.4.2 in SBML specs: http://sbml.org/Documents/Specifications
+                        System.err.print("Add more unit definitions! Missing: "+kind);
+                        System.exit(1);
+                    }
+                E.info("    --- newDim2: "+newDim);
+                }
+                newUnit.setPower(power);
+                newUnit.setScaleFactor(scaleFactor);
+
+                E.info("--- newDim: "+newDim);
+                E.info("    newUnit: "+newUnit);
+
+                lems.addDimension(newDim);
+                lems.units.deduplicate();
+                lems.addUnit(newUnit);
+                dims.put(ud.getId(), newDim);
+                units.put(ud.getId(), newUnit);
+                
+
+                if (ud.getId().equals(getTimeUnits(model))) 
+                {
+                    Dimension newDimPerTime = new Dimension("per_"+ud.getId()+DIM_SUFFIX);
+                    newDimPerTime.setT(-1);
+                    Unit newUnitPerTime = new Unit("per_"+unitName, "per_"+unitName, newDimPerTime);
+                    newUnitPerTime.setPower(-1*newUnit.getPowTen());
+                    newUnitPerTime.setScaleFactor(1/newUnit.getScale());
+
+                    lems.addDimension(newDimPerTime);
+                    lems.units.deduplicate();
+                    lems.addUnit(newUnitPerTime);
+
+                    dims.put("per_"+ud.getId(), newDimPerTime);
+                    units.put("per_"+ud.getId(), newUnitPerTime);
+
+                    E.info("newDimPerTime: "+newDimPerTime);
+                    E.info("newUnitPerTime: "+newUnitPerTime);
+
+                }
 
             }
-            lems.addDimension(newDim);
-            lems.addUnit(newUnit);
-
-            if (!useUnits) {
-            	newDim = noDim;
-            	newUnit = noUnit;
-            } 
-
-            dims.put(ud.getId(), newDim);
-            units.put(ud.getId(), newUnit);
-         
         }
 
-        Constant timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
+        
+        Constant timeScale = null;
+        if (!useUnits) {
+            timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
+        } else {
+            String sbmlUnit = "per_"+getTimeUnits(model);
+            Unit timeUnit = getUnit(sbmlUnit, units);
+            if (timeUnit==null || timeUnit.getDimension().isDimensionless())
+                timeUnit = lems.getUnit("per_s");
+            timeScale = new Constant(tscaleName, timeUnit.getDimension(), "1"+timeUnit.getSymbol());
+            //timeScale = new Constant(tscaleName, noDim, "1");
+        }
+            
+        E.info("Adding time scale constant: "+timeScale);
+        
         ct.constants.add(timeScale);
 
         for(Compartment c: model.getListOfCompartments()){
-            Dimension compDim = getDim(c.getUnits(), dims);
+            String compUnits = getCompartmentUnits(c);
+            if (compUnits.equals(DEFAULT_VOLUME_UNIT))
+            {
+                Unit u = lems.getUnit(DEFAULT_VOLUME_UNIT);
+                units.put(DEFAULT_VOLUME_UNIT, u);
+                dims.put(DEFAULT_VOLUME_UNIT, u.getDimension());
+            }
+            E.info("compUnits: "+compUnits);
             
-            Unit compUnit = getUnit(c.getUnits(), units);
+            Dimension compDim = getDim(compUnits, dims);
+            Unit compUnit = getLemsUnit(compUnits, units);
   
             String size = c.getSize()+"";
             if (!c.isSetSize())
             	size="1";
             
-            E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+", units = "+c.getUnits()+" ("+compDim+"))");
+            E.info("Adding: "+c+" (size = "+size+" (set? "+c.isSetSize()+"), constant = "+c.isConstant()+", units = "+compUnits+" ("+compDim+"))");
             
-            size = size+" "+compUnit.getSymbol();
+            size = size+" "+compUnits;
             
             boolean isInitAss = false;
             
@@ -278,8 +370,12 @@ public class SBMLImporter  {
 
         for(Parameter p: model.getListOfParameters()) {
             //org.neuroml.lems.type.Lems
-            E.info("Adding: "+p);
+            E.info("Adding parameter: "+p);
             Dimension paramDim = getDim(p.getUnits(), dims);
+            String unitString =  useUnits ? " "+p.getUnits() : "";
+            
+            if (unitString.equals(" dimensionless")) 
+                unitString = "";
 
             boolean isInitAss = false;
             
@@ -323,7 +419,7 @@ public class SBMLImporter  {
                 if (isInitAss)
                     isStateVar = true;
                 
-                E.info("  ---- Param: "+p.getId()+", isStateVar: "+isStateVar+", hasRateRule: "+hasRateRule+", isInitAss: "+isInitAss);
+                E.info("  ---- Param: "+p.getId()+", isStateVar: "+isStateVar+", hasRateRule: "+hasRateRule+", isInitAss: "+isInitAss+", paramDim: "+paramDim+", unitString: "+unitString);
                 
                 if (isStateVar) {
                     StateVariable sv = new StateVariable(p.getId(), paramDim, ex);
@@ -337,8 +433,8 @@ public class SBMLImporter  {
 
                 if (p.isSetValue()){
                 	if (isStateVar) {
-	                    E.info("Setting init param: "+p.getId() +" = "+p.getValue());
-	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+"");
+	                    E.info("Setting init param: "+p.getId() +" = "+p.getValue()+unitString);
+	                    StateAssignment sa = new StateAssignment(p.getId(), p.getValue()+unitString);
 	                    os.stateAssignments.add(sa);
                 	} else if (!hasAssRule) {
 	                    E.info("! p.isSetValue()");
@@ -348,7 +444,8 @@ public class SBMLImporter  {
                     	org.lemsml.jlems.core.type.Parameter lp = new org.lemsml.jlems.core.type.Parameter(p.getId(), paramDim);
                         lp.name = p.getId();
                         ct.parameters.add(lp);
-                        comp.setParameter(p.getId(), p.getValue()+"");
+	                    E.info("Setting param: "+p.getId() +" = "+p.getValue()+unitString);
+                        comp.setParameter(p.getId(), p.getValue()+unitString);
                 		
                 	}
                 }
@@ -358,7 +455,8 @@ public class SBMLImporter  {
             	org.lemsml.jlems.core.type.Parameter lp = new org.lemsml.jlems.core.type.Parameter(p.getId(), paramDim);
                 lp.name = p.getId();
                 ct.parameters.add(lp);
-                comp.setParameter(p.getId(), p.getValue()+"");
+	            E.info("Setting param: "+p.getId() +" = "+p.getValue()+unitString);
+                comp.setParameter(p.getId(), p.getValue()+unitString);
             }
         }
         
@@ -369,18 +467,22 @@ public class SBMLImporter  {
         }
 
 
-        E.info("functions: "+functions);
+        E.info("Functions: "+functions);
         
         
         HashMap<String, String> initVals = new HashMap<String, String>();
 
         for(Species s: model.getListOfSpecies()) {
-            Dimension speciesDim = getDim(s.getSubstanceUnits(), dims);
-            Unit speciesUnit = getUnit(s.getSubstanceUnits(), units);
+            String substanceUnits = getSpeciesUnits(s);
+            
+            Dimension speciesDim = getDim(substanceUnits, dims);
+            Unit speciesUnit = getLemsUnit(substanceUnits, units);
             
             Exposure ex = new Exposure(s.getId(), speciesDim);
             ct.exposures.add(ex);
             StateVariable sv = new StateVariable(s.getId(), speciesDim, ex);
+            
+            E.info("Adding StateVariable: "+sv+", units: "+substanceUnits);
             dyn.stateVariables.add(sv);
 
             if (s.isSetValue()){
@@ -449,9 +551,14 @@ public class SBMLImporter  {
                     comp.setParameter(ar.getVariable(), formula);
                 } else {
                 
-                    Dimension speciesDim = noDim;
+                    Dimension varDim = noDim;
+                    if (useUnits) {
+                        Parameter p = model.getParameter(ar.getVariable());
+                        varDim = getDim(p.getUnits(), dims);
+                    }
+                    E.info("Adding DerivedVariable: "+ar.getVariable() +" = "+formula+", dim: "+varDim);
 
-                    DerivedVariable dv = new DerivedVariable(ar.getVariable(), speciesDim,  formula, ar.getVariable());
+                    DerivedVariable dv = new DerivedVariable(ar.getVariable(), varDim,  formula, ar.getVariable());
                     E.info("DerivedVariable: "+dv);
 
                     dyn.derivedVariables.add(dv);
@@ -538,7 +645,7 @@ public class SBMLImporter  {
             }
 
             String formula = handleFormula(kl.getMath(), functions, timeAliases);
-            E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" ud "+kl.containsUndeclaredUnits());
+            E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" undec units "+kl.containsUndeclaredUnits());
       
             
             //
@@ -548,7 +655,7 @@ public class SBMLImporter  {
             E.info("formula now: "+formula);
             String rateDvName = "rate__"+reaction.getId();
             DerivedVariable dv = new DerivedVariable(rateDvName, noDim, formula);
-            E.info("DerivedVariable: "+dv);
+            E.info("DerivedVariable for rate: "+dv);
 
             dyn.derivedVariables.add(dv);
             
@@ -633,13 +740,20 @@ public class SBMLImporter  {
             sim1.setParameter("target", comp.getID());
             //sim1.setParameter("report",comp.getID()+"_report.txt");
             ////dr.timesFile = "examples/"+model.getId()+"_time.dat";
+            
+            String timeUnits = getTimeUnits(model);
+            Unit timeUnit = getUnit(timeUnits, units);
+            if (timeUnit==null || timeUnit.getDimension().isDimensionless())
+                timeUnit = lems.getUnit("s");
+            String timeUnitString = useUnits ? timeUnit.getSymbol() : "s";
+            double timeFactor = useUnits ? 1/timeUnit.getAbsoluteValue(1) : 1;
 
             Component disp1 = new Component("disp1", lems.getComponentTypeByName("Display"));
-            disp1.setParameter("timeScale", "1s");
+            disp1.setParameter("timeScale", "1"+timeUnitString);
             disp1.setParameter("title", "Simulation of SBML model: "+ model.getId()+" from file: "+ sbmlFile);
 
             disp1.setParameter("xmin", "0");
-            disp1.setParameter("xmax", simDuration+"");
+            disp1.setParameter("xmax", simDuration * timeFactor+"");
             disp1.setParameter("ymin", "0");
             disp1.setParameter("ymax", "1");
 
@@ -662,14 +776,14 @@ public class SBMLImporter  {
             for(Species s: model.getListOfSpecies()) {
 
                 Component lineCpt = new Component(s.getId()+"__S", lems.getComponentTypeByName("Line"));
-                lineCpt.setParameter("scale", "1");
+                lineCpt.setParameter("scale", "1 "+ getLemsUnit(getSpeciesUnits(s), units).getSymbol());
                 lineCpt.setParameter("quantity", s.getId());
                 Color c = ColorUtil.getSequentialColour(count);
                 String rgb = Integer.toHexString(c.getRGB());
                 rgb = rgb.substring(2, rgb.length());
 
                 lineCpt.setParameter("color", "#"+rgb);
-                lineCpt.setParameter("timeScale", "1s");
+                lineCpt.setParameter("timeScale", "1 "+timeUnitString);
 
                 disp1.addToChildren("lines", lineCpt);
 
@@ -684,14 +798,14 @@ public class SBMLImporter  {
 
                 if (!c.isConstant()){
                     Component lineCpt = new Component(c.getId()+"__C", lems.getComponentTypeByName("Line"));
-                    lineCpt.setParameter("scale", "1");
+                    lineCpt.setParameter("scale", "1 "+ getLemsUnit(c.getUnits(), units).getSymbol());
                     lineCpt.setParameter("quantity", c.getId());
                     Color col = ColorUtil.getSequentialColour(count);
                     String rgb = Integer.toHexString(col.getRGB());
                     rgb = rgb.substring(2, rgb.length());
 
                     lineCpt.setParameter("color", "#"+rgb);
-                    lineCpt.setParameter("timeScale", "1s");
+                    lineCpt.setParameter("timeScale", "1 "+timeUnitString);
 
                     disp1.addToChildren("lines", lineCpt);
 
@@ -707,14 +821,14 @@ public class SBMLImporter  {
 
                 if (!p.isConstant()){
                     Component lineCpt = new Component(p.getId()+"__P", lems.getComponentTypeByName("Line"));
-                    lineCpt.setParameter("scale", "1");
+                    lineCpt.setParameter("scale", "1 "+ getLemsUnit(p.getUnits(), units).getSymbol());
                     lineCpt.setParameter("quantity", p.getId());
                     Color c = ColorUtil.getSequentialColour(count);
                     String rgb = Integer.toHexString(c.getRGB());
                     rgb = rgb.substring(2, rgb.length());
 
                     lineCpt.setParameter("color", "#"+rgb);
-                    lineCpt.setParameter("timeScale", "1s");
+                    lineCpt.setParameter("timeScale", "1 "+timeUnitString);
 
                     disp1.addToChildren("lines", lineCpt);
 
@@ -740,6 +854,7 @@ public class SBMLImporter  {
         return lems;
 
     }
+    
 
     private static String replaceInFormula(String formula, HashMap<String, String> oldVsNew) {
 
@@ -902,7 +1017,8 @@ public class SBMLImporter  {
     {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
         //E.info("Generated: "+ lems.textSummary(true));
-        //E.info("Generated ct: "+ lems.getComponentTypeByName("case00471"));
+        //E.info("Generated ct: "+ lems.getComponentTypeByName("Locke2008_Circadian_Clock").summary());
+        //E.info("Generated comp: "+ lems.getComponent("Locke2008_Circadian_Clock_0").details("  "));
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
         
@@ -927,6 +1043,8 @@ public class SBMLImporter  {
 
     private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature
     {
+        E.info("Testing SBML file: "+ sbmlFile.getAbsolutePath());
+        
     	File testFile = convertSBMLToLEMSFile(sbmlFile, simDuration, simDt, true);
 
         E.info("Loading LEMS file from: "+ testFile.getAbsolutePath());
@@ -967,27 +1085,22 @@ public class SBMLImporter  {
         //File sbmlFile = new File("exportImportUtils/SBML/Simple3Species.xml");
         String srcDir = "src/test/resources";
         File sbmlFile = new File(srcDir+"/Izhikevich.xml");
+        sbmlFile = new File(srcDir+"/Simple3Species.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000138_SBML-L3V1.xml");
+
+        //sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix.xml");
         
         sbmlFile = new File(srcDir+"/BIOMD0000000184.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000039.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix_simple.xml");
         
-        sbmlFile = new File(srcDir+"/Simple3Species.xml");
-
-        sbmlFile = new File(srcDir+"/BIOMD0000000118.xml");
-        
-        sbmlFile = new File(srcDir+"/BIOMD0000000138_SBML-L3V1.xml");
-        
-        
-        boolean overrideLocalSTS = true;
-        overrideLocalSTS = false;
-        
-        File sbmlFileDir = new File("sbmlTestSuite/cases/semantic/");
-            if (sbmlFileDir.exists() && !overrideLocalSTS){
-            sbmlFile = sbmlFileDir;
-        }
 
         
-        boolean sbmlTestSuite = sbmlFile.getAbsolutePath().indexOf("sbmlTestSuite")>=0;
-
+        File sbmlTestSuiteDir = new File("sbmlTestSuite/cases/semantic/");
+        
+        boolean useSbmlTestSuite = true && sbmlTestSuiteDir.exists();
+ 
 
         float len = 10;
         if (sbmlFile.getName().indexOf("Izh")>=0) len = 140;
@@ -995,6 +1108,7 @@ public class SBMLImporter  {
         if (sbmlFile.getName().indexOf("00118")>=0) len = 500;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
         if (sbmlFile.getName().indexOf("00138")>=0) len = 3000;
+        if (sbmlFile.getName().indexOf("00185")>=0) len = 1 * (useUnits ? 3600 : 1);
         float dt = (float)(len/20000.0);
 
         HashMap<Integer, String> problematic = new HashMap<Integer, String>();
@@ -1005,7 +1119,7 @@ public class SBMLImporter  {
 
         StringBuilder errors = new StringBuilder();
 
-        if (overrideLocalSTS || !sbmlTestSuite){
+        if (!useSbmlTestSuite){
         	SwingDataViewerFactory.initialize();
             runTest(sbmlFile, len, dt);
         }
@@ -1024,7 +1138,7 @@ public class SBMLImporter  {
             numToStop = 1180;
             //numToStop = 500;
             //numToStart = 1065;
-            //numToStop = 700;
+            //numToStop = 100;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
