@@ -306,7 +306,7 @@ public class SBMLImporter  {
         }
 
         
-        Constant timeScale = null;
+        Constant timeScale;
         if (!useUnits) {
             timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
         } else {
@@ -314,8 +314,8 @@ public class SBMLImporter  {
             Unit timeUnit = getLemsUnit(sbmlUnit, units);
             if (timeUnit==null || timeUnit.getDimension().isDimensionless())
                 timeUnit = lems.getUnit("per_s");
-            //timeScale = new Constant(tscaleName, timeUnit.getDimension(), "1"+timeUnit.getSymbolString());
-            timeScale = new Constant(tscaleName, noDim, "1");
+            timeScale = new Constant(tscaleName, timeUnit.getDimension(), "1"+timeUnit.getSymbolString());
+            //timeScale = new Constant(tscaleName, noDim, "1");
         }
             
         E.info("Adding time scale constant: "+timeScale);
@@ -324,6 +324,13 @@ public class SBMLImporter  {
 
         for(Compartment c: model.getListOfCompartments()){
             
+            /* Not yet....
+            if (false && (c.isSetSize() && c.getSize()!=1) && c.isSetSpatialDimensions() && !(c.getSpatialDimensions()==3 || c.getSpatialDimensions()==0)) {
+                
+            	throw new UnsupportedSBMLFeature("Currently only 3 (or 0) spatial dimensions in compartment supported; "
+                    + "Compartment "+c.getId()+" has "+c.getSpatialDimensions()+" and size = "+c.getSize()+"!");
+            }
+            */
             
             Unit compUnit = getCompartmentUnits(c, units, lems);
             E.info("compUnits: "+compUnit);
@@ -639,8 +646,10 @@ public class SBMLImporter  {
         for (StateAssignment sa: os.getStateAssignments()) {
         	E.info("OnStarts: "+sa.variable+" = "+sa.value);
         }
+        
 
         HashMap<String, StringBuilder> speciesTotalRates = new HashMap<String, StringBuilder>();
+        
 
         for (Reaction reaction: model.getListOfReactions()){
             KineticLaw kl = reaction.getKineticLaw();
@@ -661,9 +670,15 @@ public class SBMLImporter  {
             }
             
             for (Species s: model.getListOfSpecies()) {
-
-            	speciesScales.put(s.getId(), "("+s.getId()+"/"+s.getCompartment()+")");
+                
+                if (s.isSetInitialAmount())
+                    speciesScales.put(s.getId(), "("+s.getId()+"/"+s.getCompartment()+")");
+                else
+                    speciesScales.put(s.getId(), s.getId());
+                
+                E.info("---------Species: "+s+",: "+s.hasOnlySubstanceUnits()+" : "+speciesScales);
             }
+            
 
             String formula = handleFormula(kl.getMath(), functions, timeAliases);
             E.info("formula: "+formula+", derived units: "+kl.getDerivedUnits()+" undec units "+kl.containsUndeclaredUnits());
@@ -736,8 +751,11 @@ public class SBMLImporter  {
         E.info(">>>> speciesTotalRates: "+speciesTotalRates);
 
         for(String s: speciesTotalRates.keySet()){
-        	//Species sp = model.getSpecies(s);
-            TimeDerivative td = new TimeDerivative(s, timeScale.getName() +" * ("+speciesTotalRates.get(s).toString()+") ");
+        	Species sp = model.getSpecies(s);
+            String speciesRateScale = sp.isSetInitialAmount() ? "" : " / "+ sp.getCompartment();
+            String speciesRateTimeScale = !useUnits ? timeScale.getName() + " * " : "("+timeScale.getName() + " * "+timeScale.getName() + ") * ";
+            
+            TimeDerivative td = new TimeDerivative(s, speciesRateTimeScale +"("+speciesTotalRates.get(s).toString()+")"+speciesRateScale);
 
             E.info(">>>> TimeDerivative "+td.getValueExpression());
             dyn.timeDerivatives.add(td);
@@ -982,7 +1000,8 @@ public class SBMLImporter  {
 
                 ASTNode exp0 = fd.getBody();
                 ASTNode exp = (ASTNode)exp0.clone();
-                E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp);
+                E.info("-- Function def is: "+fd.getId()+"(...) = "+ exp.toFormula());
+                checkFormula(exp.toFormula());
                 count++;
                 if (count>20) throw new ParseException("Problem with formula: "+origFormula);
                 
@@ -1115,6 +1134,7 @@ public class SBMLImporter  {
         sbmlFile = new File(srcDir+"/BIOMD0000000184.xml");
         sbmlFile = new File(srcDir+"/BIOMD0000000039.xml");
         sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix_simple.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix.xml");
         
 
         
@@ -1129,7 +1149,7 @@ public class SBMLImporter  {
         if (sbmlFile.getName().indexOf("00118")>=0) len = 500;
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
         if (sbmlFile.getName().indexOf("00138")>=0) len = 3000;
-        if (sbmlFile.getName().indexOf("00185")>=0) len = 1 * (useUnits ? 3600 : 1);
+        if (sbmlFile.getName().indexOf("00185")>=0) len = 50 * (useUnits ? 3600 : 1);
         float dt = (float)(len/20000.0);
 
         HashMap<Integer, String> problematic = new HashMap<Integer, String>();
@@ -1159,12 +1179,12 @@ public class SBMLImporter  {
             numToStop = 1180;
             //numToStop = 500;
             //numToStart = 1065;
-            //numToStop = 100;
+            //numToStop = 206;
             
             int numLemsPoints = 30000;
             float tolerance = 0.01f;
 
-            if ((numToStop-numToStart)<=10)
+            if ((numToStop-numToStart)<=2)
         		SwingDataViewerFactory.initialize();
 
             boolean exitOnError = false;
@@ -1393,7 +1413,7 @@ public class SBMLImporter  {
                             
                         } catch(UnsupportedSBMLFeature e){
                             E.info("\n\nSBML test: "+testCase+" can't be run due to unsupported feature!!\n");
-                            e.printStackTrace();
+                            E.info(e.getMessage()+"\n");
                             errors.append(testCase+": "+ e.getMessage()+"\n");
 
                             unsupported++;
