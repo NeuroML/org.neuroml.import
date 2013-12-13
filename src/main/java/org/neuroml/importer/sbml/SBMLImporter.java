@@ -174,8 +174,23 @@ public class SBMLImporter  {
 
     	E.setDebug(false);
         SBMLReader sr = new SBMLReader();
+        
+        String sbmlString = FileUtil.readStringFromFile(sbmlFile);
+        
+        if (sbmlString.indexOf("comp:required=\"true\"")>=0) {
+            throw new UnsupportedSBMLFeature("This model seems to require comp package (jSBML doesn't support this yet)!");
+        }
+            
 
-        SBMLDocument doc = sr.readSBML(sbmlFile);
+        SBMLDocument doc;
+        try {
+            doc = sr.readSBML(sbmlFile);
+        } catch (XMLStreamException e) {
+            throw new UnsupportedSBMLFeature("jSBML cannot parse this SBML model!");
+        } catch (IOException e) {
+            throw new UnsupportedSBMLFeature("jSBML cannot parse this SBML model!");
+        }
+            
 
         Model model = doc.getModel();
         
@@ -196,6 +211,8 @@ public class SBMLImporter  {
 		Lems lems = sim.getLems();
 		
 		E.info("Loaded LEMS: "+lems.toString());
+        
+        //E.info("---"+model.get);
 		
 
         boolean addModel = true;
@@ -1303,6 +1320,8 @@ public class SBMLImporter  {
                             } else {
 
 	                            File resultFile = new File(sbmlFile.getParentFile(), "case"+testCase+".dat");
+                                if (!resultFile.exists())
+                                    resultFile = new File(sbmlFile.getParentFile(), "complexified.dat");
 	                            ArrayList<String> cols = new ArrayList<String>();
 	                            cols.add("time");
 	
