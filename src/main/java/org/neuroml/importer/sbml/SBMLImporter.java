@@ -82,8 +82,8 @@ public class SBMLImporter  {
     
     static final String DEFAULT_VOLUME_UNIT_NAME = "litre";
 
-	static boolean useUnits = true;
-	//static boolean useUnits = false;
+	//static boolean useUnits = true;
+	static boolean useUnits = false;
 
     static final Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
     
