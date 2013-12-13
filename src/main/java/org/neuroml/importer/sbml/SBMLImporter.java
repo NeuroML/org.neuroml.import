@@ -82,8 +82,8 @@ public class SBMLImporter  {
     
     static final String DEFAULT_VOLUME_UNIT_NAME = "litre";
 
-	//static boolean useUnits = true;
-	static boolean useUnits = false;
+	static boolean useUnits = true;
+	//static boolean useUnits = false;
 
     static final Dimension noDim = new Dimension(Dimension.NO_DIMENSION);
     
@@ -142,8 +142,43 @@ public class SBMLImporter  {
             }
             return units.get(concUnitName);
         }
+    }
+    
+    private static Unit getReactionRateUnit(Species s, HashMap<String, Unit> units, Lems lems, Model m) throws ContentError {
+        
+        if (!useUnits)
+            return noUnit;
+        
+        Unit timeUnit = getTimeUnit(m, units);
+        
+        Unit speciesUnit = getSpeciesUnit(s, units, lems);
+            
+        String rateUnitName = speciesUnit.getSymbol()+"_per_"+timeUnit.getSymbol();
+        
+        if (!units.containsKey(rateUnitName)) {
+            Dimension dim = new Dimension(rateUnitName+"_dimension", 
+                                          speciesUnit.getDimension().m - timeUnit.getDimension().m, 
+                                          speciesUnit.getDimension().l - timeUnit.getDimension().l, 
+                                          speciesUnit.getDimension().t - timeUnit.getDimension().t, 
+                                          speciesUnit.getDimension().i - timeUnit.getDimension().i, 
+                                          speciesUnit.getDimension().k - timeUnit.getDimension().k, 
+                                          speciesUnit.getDimension().n - timeUnit.getDimension().n, 
+                                          speciesUnit.getDimension().j - timeUnit.getDimension().j);
+            lems.addDimension(dim);
+
+            Unit rateUnit = new Unit(rateUnitName, rateUnitName, dim);
+            rateUnit.setPower(speciesUnit.power - timeUnit.power);
+            rateUnit.setScaleFactor(speciesUnit.scale / timeUnit.scale);
+            lems.addUnit(rateUnit);
+            units.put(rateUnitName, rateUnit);
+
+        }
+        return units.get(rateUnitName);
+        
         
     }
+    
+    
     
     private static Unit getCompartmentUnits(Compartment c, HashMap<String, Unit> units, Lems lems) throws ContentError {
         
@@ -161,8 +196,11 @@ public class SBMLImporter  {
         return units.get(DEFAULT_VOLUME_UNIT_NAME);
     }
     
+    private static Unit getTimeUnit(Model m, HashMap<String, Unit> units) {
+        return units.get(getTimeUnitName(m));
+    }
     
-    private static String getTimeUnits(Model m) {
+    private static String getTimeUnitName(Model m) {
         if (m.getTimeUnits()!=null && m.getTimeUnits().length()>0)
             return m.getTimeUnits();
         else 
@@ -295,7 +333,7 @@ public class SBMLImporter  {
                 units.put(ud.getId(), newUnit);
                 
 
-                if (ud.getId().equals(getTimeUnits(model))) 
+                if (ud.getId().equals(getTimeUnitName(model))) 
                 {
                     Dimension newDimPerTime = new Dimension("per_"+dimName);
                     newDimPerTime.setT(-1);
@@ -327,7 +365,7 @@ public class SBMLImporter  {
         if (!useUnits) {
             timeScale = new Constant(tscaleName, lems.dimensions.getByName("per_time"), "1per_s");
         } else {
-            String sbmlUnit = "per_"+getTimeUnits(model);
+            String sbmlUnit = "per_"+getTimeUnitName(model);
             Unit timeUnit = getLemsUnit(sbmlUnit, units);
             if (timeUnit==null || timeUnit.getDimension().isDimensionless())
                 timeUnit = lems.getUnit("per_s");
@@ -693,7 +731,7 @@ public class SBMLImporter  {
                 else
                     speciesScales.put(s.getId(), s.getId());
                 
-                E.info("---------Species: "+s+",: "+s.hasOnlySubstanceUnits()+" : "+speciesScales);
+                //E.info("---------Species: "+s+",: "+s.hasOnlySubstanceUnits()+" : "+speciesScales);
             }
             
 
@@ -707,7 +745,14 @@ public class SBMLImporter  {
         
             E.info("formula now: "+formula);
             String rateDvName = "rate__"+reaction.getId();
-            DerivedVariable dv = new DerivedVariable(rateDvName, noDim, formula);
+            
+            Species someSpecies = !reaction.getListOfProducts().isEmpty() ? reaction.getListOfProducts().getFirst().getSpeciesInstance() : null;
+            if (someSpecies==null) 
+                someSpecies = reaction.getListOfReactants().getFirst().getSpeciesInstance();
+            
+            Dimension dvDim = useUnits  ? getReactionRateUnit(someSpecies, units, lems, model).getDimension() : noDim;
+            
+            DerivedVariable dv = new DerivedVariable(rateDvName, dvDim, formula);
             E.info("DerivedVariable for rate: "+dv);
 
             dyn.derivedVariables.add(dv);
@@ -797,8 +842,7 @@ public class SBMLImporter  {
             //sim1.setParameter("report",comp.getID()+"_report.txt");
             ////dr.timesFile = "examples/"+model.getId()+"_time.dat";
             
-            String timeUnits = getTimeUnits(model);
-            Unit timeUnit = getLemsUnit(timeUnits, units);
+            Unit timeUnit = getTimeUnit(model, units);
             if (timeUnit==null || timeUnit.getDimension().isDimensionless())
                 timeUnit = lems.getUnit("s");
             String timeUnitString = useUnits ? timeUnit.getSymbolString() : "s";
@@ -1157,7 +1201,7 @@ public class SBMLImporter  {
         
         File sbmlTestSuiteDir = new File("sbmlTestSuite/cases/semantic/");
         
-        boolean useSbmlTestSuite = true && sbmlTestSuiteDir.exists();
+        boolean useSbmlTestSuite = false && sbmlTestSuiteDir.exists();
  
 
         float len = 10;
@@ -1191,7 +1235,7 @@ public class SBMLImporter  {
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 1; 
+            int numToStart = 300; 
             int numToStop = 200;
             numToStop = 1180;
             //numToStop = 500;
@@ -1207,7 +1251,7 @@ public class SBMLImporter  {
             boolean exitOnError = false;
             //exitOnError = true;
             boolean exitOnMismatch = true;
-            exitOnMismatch = false;
+            //exitOnMismatch = false;
 
             boolean skipFuncDefinitions = false;
             
