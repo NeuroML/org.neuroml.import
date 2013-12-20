@@ -98,6 +98,10 @@ public class SBMLImporter  {
     }
 
     public static String tscaleName = "tscale";
+    
+    public static void useUnits(boolean units) {
+        useUnits = units;
+    }
 
     public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
@@ -278,7 +282,8 @@ public class SBMLImporter  {
                     dimName = ud.getId();
                 
                 Dimension newDim = new Dimension(dimName);
-                String unitName = ud.getName().replaceAll(" ", "_");
+                String unitName = ud.getName().length()>0 ? ud.getName() : ud.getId();
+                unitName = unitName.replaceAll(" ", "_");
                 
                 Unit newUnit = new Unit(unitName, unitName, newDim);
                 E.info("---------   Convering sbml unit: "+ud.getId() +" (name: "+ud.getName()+")");
@@ -1196,6 +1201,9 @@ public class SBMLImporter  {
         sbmlFile = new File(srcDir+"/BIOMD0000000039.xml");
         sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix_simple.xml");
         sbmlFile = new File(srcDir+"/BIOMD0000000185_unitfix.xml");
+        sbmlFile = new File(srcDir+"/BIOMD0000000224.xml");
+        
+        sbmlFile = new File(srcDir+"/BIOMD0000000185.xml");
         
 
         
@@ -1203,6 +1211,8 @@ public class SBMLImporter  {
         
         boolean useSbmlTestSuite = false && sbmlTestSuiteDir.exists();
  
+        //if (!useSbmlTestSuite)    
+        //    useUnits = true;
 
         float len = 10;
         if (sbmlFile.getName().indexOf("Izh")>=0) len = 140;
@@ -1211,6 +1221,7 @@ public class SBMLImporter  {
         if (sbmlFile.getName().indexOf("00184")>=0) len = 1000;
         if (sbmlFile.getName().indexOf("00138")>=0) len = 3000;
         if (sbmlFile.getName().indexOf("00185")>=0) len = 50 * (useUnits ? 3600 : 1);
+        if (sbmlFile.getName().indexOf("00224")>=0) len = 150 * (useUnits ? 0.001f : 1);
         float dt = (float)(len/20000.0);
 
         HashMap<Integer, String> problematic = new HashMap<Integer, String>();
