@@ -8,3 +8,5 @@ The simplest way to get access to this functionality is to install jNeuroML: htt
 and find the range of import formats currently supported with:
 
     jnml -help
+    
+[![Build Status](https://travis-ci.org/NeuroML/org.neuroml.import.png)](https://travis-ci.org/NeuroML/org.neuroml.import)
