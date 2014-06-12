@@ -12,15 +12,11 @@ import java.util.HashMap;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.lemsml.jlems.core.expression.ParseError;
 import org.lemsml.jlems.core.expression.ParseTree;
 import org.lemsml.jlems.core.expression.Parser;
 import org.lemsml.jlems.core.logging.E;
-import org.lemsml.jlems.core.run.ConnectionError;
-import org.lemsml.jlems.core.run.RuntimeError;
-import org.lemsml.jlems.core.sim.ContentError;
 import org.lemsml.jlems.core.sim.Sim;
-import org.lemsml.jlems.core.type.BuildException;
+import org.lemsml.jlems.core.sim.LEMSException;
 import org.lemsml.jlems.core.type.Component;
 import org.lemsml.jlems.core.type.ComponentType;
 import org.lemsml.jlems.core.type.Constant;
@@ -36,7 +32,6 @@ import org.lemsml.jlems.core.type.dynamics.OnStart;
 import org.lemsml.jlems.core.type.dynamics.StateAssignment;
 import org.lemsml.jlems.core.type.dynamics.StateVariable;
 import org.lemsml.jlems.core.type.dynamics.TimeDerivative;
-import org.lemsml.jlems.core.xml.XMLException;
 import org.lemsml.jlems.io.logging.DefaultLogger;
 import org.lemsml.jlems.io.out.FileResultWriterFactory;
 import org.lemsml.jlems.io.util.FileUtil;
@@ -103,7 +98,7 @@ public class SBMLImporter  {
         useUnits = units;
     }
 
-    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
+    public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt) throws LEMSException, XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, SBMLException, ParseException, UnsupportedSBMLFeature {
     	return convertSBMLToLEMS(sbmlFile, simDuration, simDt, null);
     }
 
@@ -122,7 +117,7 @@ public class SBMLImporter  {
     
     
     
-    private static Unit getSpeciesUnit(Species s, HashMap<String, Unit> units, Lems lems) throws ContentError {
+    private static Unit getSpeciesUnit(Species s, HashMap<String, Unit> units, Lems lems) throws LEMSException {
         
         if (!useUnits)
             return noUnit;
@@ -148,7 +143,7 @@ public class SBMLImporter  {
         }
     }
     
-    private static Unit getReactionRateUnit(Species s, HashMap<String, Unit> units, Lems lems, Model m) throws ContentError {
+    private static Unit getReactionRateUnit(Species s, HashMap<String, Unit> units, Lems lems, Model m) throws LEMSException {
         
         if (!useUnits)
             return noUnit;
@@ -184,7 +179,7 @@ public class SBMLImporter  {
     
     
     
-    private static Unit getCompartmentUnits(Compartment c, HashMap<String, Unit> units, Lems lems) throws ContentError {
+    private static Unit getCompartmentUnits(Compartment c, HashMap<String, Unit> units, Lems lems) throws LEMSException {
         
         if (!useUnits)
             return noUnit;
@@ -212,7 +207,7 @@ public class SBMLImporter  {
     }
 
     @SuppressWarnings("deprecation")
-	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, SBMLException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
+	public static Lems convertSBMLToLEMS(File sbmlFile, float simDuration, float simDt, File dirForResults) throws XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, SBMLException, ParseException, LEMSException, UnsupportedSBMLFeature {
 
     	E.setDebug(false);
         SBMLReader sr = new SBMLReader();
@@ -992,7 +987,7 @@ public class SBMLImporter  {
     
     
     
-    private static String astNodeToString(ASTNode ast, boolean condition) throws XMLStreamException, ParseError, ContentError
+    private static String astNodeToString(ASTNode ast, boolean condition) throws XMLStreamException, LEMSException
     {
         //String mml = JSBML.writeMathMLToString(ast);
         //E.info("MathML: "+mml);
@@ -1007,11 +1002,11 @@ public class SBMLImporter  {
         
     }
 
-    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError, XMLStreamException {
+    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases) throws SBMLException, ParseException, UnsupportedSBMLFeature, LEMSException, XMLStreamException {
         return handleFormula(ast, functions, timeAliases, false);
     }
 
-    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases, boolean condition) throws SBMLException, ParseException, UnsupportedSBMLFeature, ParseError, ContentError, XMLStreamException {
+    private static String handleFormula(ASTNode ast, ArrayList<FunctionDefinition> functions, ArrayList<String> timeAliases, boolean condition) throws SBMLException, ParseException, UnsupportedSBMLFeature, LEMSException, XMLStreamException {
         
         String formula = astNodeToString(ast,condition);
         String mml = JSBML.writeMathMLToString(ast);
@@ -1119,7 +1114,7 @@ public class SBMLImporter  {
         return formula;
     }
     
-    public static File convertSBMLToLEMSFile(File sbmlFile, float simDuration, float simDt, boolean comment) throws SBMLException, ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature
+    public static File convertSBMLToLEMSFile(File sbmlFile, float simDuration, float simDt, boolean comment) throws SBMLException, XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, ParseException, LEMSException, UnsupportedSBMLFeature
     {
         Lems lems = convertSBMLToLEMS(sbmlFile, simDuration, simDt, sbmlFile.getParentFile());
         //E.info("Generated: "+ lems.textSummary(true));
@@ -1147,7 +1142,7 @@ public class SBMLImporter  {
         return lemsFile;
     }
 
-    private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, ContentError, XMLStreamException, ParseError, org.lemsml.jlems.core.sim.ParseException, BuildException, XMLException, IOException, ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature
+    private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, ParseException, UnsupportedSBMLFeature, LEMSException
     {
         E.info("Testing SBML file: "+ sbmlFile.getAbsolutePath());
         
