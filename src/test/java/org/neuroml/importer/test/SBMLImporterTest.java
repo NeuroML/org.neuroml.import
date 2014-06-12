@@ -5,16 +5,9 @@ import java.io.IOException;
 
 import javax.xml.stream.XMLStreamException;
 
-import org.lemsml.jlems.core.expression.ParseError;
 import org.lemsml.jlems.core.logging.E;
 import org.lemsml.jlems.core.logging.MinimalMessageHandler;
-import org.lemsml.jlems.core.run.ConnectionError;
-import org.lemsml.jlems.core.run.RuntimeError;
-import org.lemsml.jlems.core.sim.ContentError;
-import org.lemsml.jlems.core.sim.ParseException;
-import org.lemsml.jlems.core.type.BuildException;
 import org.lemsml.jlems.core.type.Lems;
-import org.lemsml.jlems.core.xml.XMLException;
 import org.lemsml.jlems.io.util.FileUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
 import org.neuroml.export.Utils;
@@ -23,6 +16,7 @@ import org.neuroml.importer.sbml.UnsupportedSBMLFeature;
 import org.sbml.jsbml.SBMLException;
 
 import junit.framework.TestCase;
+import org.lemsml.jlems.core.sim.LEMSException;
 
 public class SBMLImporterTest extends TestCase {
 
@@ -77,7 +71,7 @@ public class SBMLImporterTest extends TestCase {
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}*/
 
-	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, ConnectionError, RuntimeError, UnsupportedSBMLFeature {
+	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws LEMSException, IOException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, UnsupportedSBMLFeature {
 
     	MinimalMessageHandler.setVeryMinimal(true);
 		
