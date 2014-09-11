@@ -22,5 +22,8 @@ if [ "$?" -ne "0" ]; then
     echo ""
     echo "    mvn assembly:assembly -DdescriptorId=jar-with-dependencies"
     echo ""
+    echo "You need to have org.neuroml.model, org.neuroml.export, etc. installed locally too."
+    echo "A useful way to do this is with https://github.com/NeuroML/jNeuroML/blob/master/getNeuroML.py"
+    echo ""
     exit 1
 fi

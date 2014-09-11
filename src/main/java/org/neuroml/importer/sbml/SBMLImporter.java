@@ -1164,7 +1164,7 @@ public class SBMLImporter  {
         E.setDebug(true);
         
         boolean forceSBMLTestSuite = false;
-        if (args.length==1 && args[1].equals("-runSBMLTestSuite"))
+        if (args.length==1 && args[0].equals("-runSBMLTestSuite"))
             forceSBMLTestSuite = true;
         
         String[] exprs = {"(4)!","((4)!+4)","( (5 + (4)!) +4)", "sin(g)", "((ceil(p1*S1))!*p2^(-1))"};
