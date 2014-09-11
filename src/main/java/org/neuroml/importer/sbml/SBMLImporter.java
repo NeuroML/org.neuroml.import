@@ -1162,7 +1162,11 @@ public class SBMLImporter  {
     public static void main(String[] args) throws Exception
     {
         E.setDebug(true);
-
+        
+        boolean forceSBMLTestSuite = false;
+        if (args.length==1 && args[1].equals("-runSBMLTestSuite"))
+            forceSBMLTestSuite = true;
+        
         String[] exprs = {"(4)!","((4)!+4)","( (5 + (4)!) +4)", "sin(g)", "((ceil(p1*S1))!*p2^(-1))"};
         for (String expr: exprs){
         	//E.info("------------------------");
@@ -1204,7 +1208,7 @@ public class SBMLImporter  {
         
         File sbmlTestSuiteDir = new File("sbmlTestSuite/cases/semantic/");
         
-        boolean useSbmlTestSuite = false && sbmlTestSuiteDir.exists();
+        boolean useSbmlTestSuite = sbmlTestSuiteDir.exists() && forceSBMLTestSuite;
  
         //if (!useSbmlTestSuite)    
         //    useUnits = true;
@@ -1241,7 +1245,7 @@ public class SBMLImporter  {
             int notFound = 0;
             int skipped = 0;
 
-            int numToStart = 300; 
+            int numToStart = 1; 
             int numToStop = 200;
             numToStop = 1180;
             //numToStop = 500;
@@ -1257,7 +1261,7 @@ public class SBMLImporter  {
             boolean exitOnError = false;
             //exitOnError = true;
             boolean exitOnMismatch = true;
-            //exitOnMismatch = false;
+            exitOnMismatch = false;
 
             boolean skipFuncDefinitions = false;
             
@@ -1267,6 +1271,14 @@ public class SBMLImporter  {
             
             //String version = "l2v4";
             String version = "l3v1";
+            
+            if (forceSBMLTestSuite) {
+
+                numToStart = 1; 
+                numToStop = 1180;
+                exitOnError = false;
+                exitOnMismatch = false;
+            }
             
             for(int i=numToStart;i<=numToStop;i++){
 
