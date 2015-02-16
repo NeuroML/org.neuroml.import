@@ -10,7 +10,7 @@ import org.lemsml.jlems.core.logging.MinimalMessageHandler;
 import org.lemsml.jlems.core.type.Lems;
 import org.lemsml.jlems.io.util.FileUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
-import org.neuroml.export.Utils;
+import org.neuroml.export.utils.Utils;
 import org.neuroml.importer.sbml.SBMLImporter;
 import org.neuroml.importer.sbml.UnsupportedSBMLFeature;
 import org.sbml.jsbml.SBMLException;
