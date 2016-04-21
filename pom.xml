@@ -1,5 +1,5 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.neuroml.import</groupId>
     <artifactId>org.neuroml.import</artifactId>
@@ -18,6 +18,11 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
+        </repository>
+        <repository>
+            <id>biojava-legacy-repo</id>
+            <name>BioJava's Git based legacy maven repo</name>
+            <url>https://github.com/biojava/maven-repo/raw/master/</url>
         </repository>
     </repositories>
     <dependencies>
