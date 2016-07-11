@@ -39,7 +39,7 @@ import org.lemsml.jlems.io.util.JUtil;
 import org.lemsml.jlems.io.xmlio.XMLSerializer;
 import org.lemsml.jlems.viz.datadisplay.SwingDataViewerFactory;
 import org.lemsml.jlems.viz.plot.ColorUtil;
-import org.neuroml.export.Utils;
+import org.neuroml.export.utils.Utils;
 import org.neuroml.importer.Main;
 import org.neuroml.model.util.NeuroML2Validator;
 import org.neuroml.model.util.NeuroMLElements;
