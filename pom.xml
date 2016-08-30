@@ -18,6 +18,11 @@
             <name>BioJava's Git based legacy maven repo</name>
             <url>https://github.com/biojava/maven-repo/raw/master/</url>
         </repository>
+        <repository>
+            <id>public.lombok.maven.repository</id>
+            <name>public.lombok.maven.repository</name>
+            <url>https://raw.githubusercontent.com/LiviaH/public.lombok.maven.repository/master/</url>
+        </repository>
     </repositories>
     <dependencies>
         <dependency>
