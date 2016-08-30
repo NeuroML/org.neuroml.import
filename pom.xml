@@ -9,12 +9,9 @@
     <url>http://maven.apache.org</url>
     <repositories>
         <repository>
-            <id>ebi-repo</id>
-            <name>The EBI repository</name>
-            <url>http://www.ebi.ac.uk/~maven/m2repo</url>
-            <releases>
-                <enabled>true</enabled>
-            </releases>
+            <id>JSBML</id>
+            <name>The JSBML repository</name>
+            <url>http://jsbml.sourceforge.net/m2repo_snapshots/</url>
         </repository>
         <repository>
             <id>biojava-legacy-repo</id>
@@ -36,9 +33,9 @@
         </dependency>
         
         <dependency>
-            <groupId>org.sbml.jsbml</groupId>
-            <artifactId>jsbml</artifactId>
-            <version>1.1</version>
+            <groupId>org.sbml.jsbml</groupId> 
+            <artifactId>jsbml</artifactId> 
+            <version>1.2-SNAPSHOT</version> 
         </dependency>
     </dependencies>
     <build>
