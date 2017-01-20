@@ -43,6 +43,7 @@ import org.neuroml.export.utils.Utils;
 import org.neuroml.importer.Main;
 import org.neuroml.model.util.NeuroML2Validator;
 import org.neuroml.model.util.NeuroMLElements;
+import org.neuroml.model.util.NeuroMLException;
 import org.sbml.jsbml.ASTNode;
 import org.sbml.jsbml.AssignmentRule;
 import org.sbml.jsbml.Compartment;
@@ -1142,7 +1143,7 @@ public class SBMLImporter  {
         return lemsFile;
     }
 
-    private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, ParseException, UnsupportedSBMLFeature, LEMSException
+    private static void runTest(File sbmlFile, float simDuration, float simDt) throws SBMLException, XMLStreamException, org.lemsml.jlems.core.sim.ParseException, IOException, ParseException, UnsupportedSBMLFeature, LEMSException, NeuroMLException
     {
         E.info("Testing SBML file: "+ sbmlFile.getAbsolutePath());
         
