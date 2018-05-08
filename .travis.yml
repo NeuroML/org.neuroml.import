@@ -1,9 +1,13 @@
+dist: precise
+sudo: false
+
 language: java
 
 jdk:
-  - openjdk7
-  - openjdk6
+  #- openjdk7
+  #- openjdk6
   - oraclejdk7
+  - oraclejdk8
   
 install:
     - export main_repo_branch=$TRAVIS_BRANCH
