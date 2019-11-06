@@ -17,6 +17,7 @@ import org.sbml.jsbml.SBMLException;
 
 import junit.framework.TestCase;
 import org.lemsml.jlems.core.sim.LEMSException;
+import org.neuroml.model.util.NeuroMLException;
 
 public class SBMLImporterTest extends TestCase {
 
@@ -71,7 +72,7 @@ public class SBMLImporterTest extends TestCase {
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}*/
 
-	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws LEMSException, IOException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, UnsupportedSBMLFeature {
+	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws LEMSException, IOException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, UnsupportedSBMLFeature, NeuroMLException {
 
     	MinimalMessageHandler.setVeryMinimal(true);
 		
