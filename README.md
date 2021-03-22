@@ -14,7 +14,8 @@ The simplest way to get access to this functionality is to install jNeuroML: htt
 and find the range of import formats currently supported with:
 
     jnml -help
-    
+
+
 This code is distributed under the terms of the GNU Lesser General Public License.
 
 API Documentation can be found [here](http://neuroml.github.io/org.neuroml.import/index.html).
