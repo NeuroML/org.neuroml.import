@@ -7,6 +7,7 @@ Import into LEMS format
 [![GitHub issues](https://img.shields.io/github/issues/NeuroML/org.neuroml.import)](https://github.com/NeuroML/org.neuroml.import/issues)
 [![GitHub Org's stars](https://img.shields.io/github/stars/NeuroML?style=social)](https://github.com/NeuroML)
 [![Twitter Follow](https://img.shields.io/twitter/follow/NeuroML?style=social)](https://twitter.com/NeuroML)
+[![Gitter](https://badges.gitter.im/NeuroML/community.svg)](https://gitter.im/NeuroML/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 Import other formats into LEMS &amp; combine with NeuroML models.
 
