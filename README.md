@@ -1,7 +1,7 @@
 Import into LEMS format
 =======================
 
-[![Travis CI](https://travis-ci.com/NeuroML/org.neuroml.import.svg?branch=master)](https://travis-ci.com/NeuroML/org.neuroml.import)
+[![Java CI with Maven](https://github.com/NeuroML/org.neuroml.import/actions/workflows/ci.yml/badge.svg)](https://github.com/NeuroML/org.neuroml.import/actions/workflows/ci.yml)
 [![GitHub](https://img.shields.io/github/license/NeuroML/org.neuroml.import)](https://github.com/NeuroML/org.neuroml.import/blob/master/LICENSE.lesser)
 [![GitHub pull requests](https://img.shields.io/github/issues-pr/NeuroML/org.neuroml.import)](https://github.com/NeuroML/org.neuroml.import/pulls)
 [![GitHub issues](https://img.shields.io/github/issues/NeuroML/org.neuroml.import)](https://github.com/NeuroML/org.neuroml.import/issues)
