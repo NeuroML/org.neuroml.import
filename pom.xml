@@ -35,8 +35,35 @@
         <dependency>
             <groupId>org.sbml.jsbml</groupId>
             <artifactId>jsbml</artifactId>
-            <version>1.2-beta1</version>
+            <version>1.4</version>
         </dependency>
+
+        <!-- Dependencies to force use of log4j 2.15 -->
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+            <version>2.15.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+            <version>2.15.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+            <version>2.15.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.biojava</groupId>
+            <artifactId>biojava-ontology</artifactId>
+            <version>6.0.1</version>
+        </dependency>
+
+
+
     </dependencies>
     <build>
         <plugins>
