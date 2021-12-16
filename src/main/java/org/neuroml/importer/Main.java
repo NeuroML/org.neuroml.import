@@ -1,8 +1,8 @@
 package org.neuroml.importer;
 
 
-public class Main 
+public class Main
 {
 
-    public static String ORG_NEUROML_IMPORT_VERSION = "1.7.2";
+    public static String ORG_NEUROML_IMPORT_VERSION = "1.8.1";
 }
