@@ -45,26 +45,26 @@ public class SBMLImporterTest extends TestCase {
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000039.xml");
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}
-	
-		
+
+
 	public void testBio184()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000184.xml");
         convertSBMLtoLEMSFile(sbmlFile, 1000);
 	}
-    
+
 	public void testBio185()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000185.xml");
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}
-    
+
 	public void testBio224()  throws Exception {
 
         File sbmlFile = new File(exampleSrcDir+"/BIOMD0000000224.xml");
         convertSBMLtoLEMSFile(sbmlFile, 50);
 	}
-	
+
 	/*
 	public void testBio118()  throws ContentError, ParseError, IOException, ParseException, BuildException, XMLException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException {
 
@@ -75,14 +75,14 @@ public class SBMLImporterTest extends TestCase {
 	public void convertSBMLtoLEMSFile(File sbmlFile, float simDuration) throws LEMSException, IOException, XMLStreamException, SBMLException, org.sbml.jsbml.text.parser.ParseException, UnsupportedSBMLFeature, NeuroMLException {
 
     	MinimalMessageHandler.setVeryMinimal(true);
-		
-        System.out.println( "Converting "+sbmlFile.getAbsolutePath()+" from SBML to LEMS" );
+
+        System.out.println( "    ====   Converting "+sbmlFile.getAbsolutePath()+" from SBML to LEMS" );
         float dt = (float)(simDuration/10000.0);
 
         Lems lems = SBMLImporter.convertSBMLToLEMS(sbmlFile, simDuration, dt);
         lems.resolve();
         String lemsString  = XMLSerializer.serialize(lems);
-    
+
         //E.info("Created: \n"+lemsString);
         //E.info("Info: \n"+lems.textSummary());
 
@@ -97,7 +97,7 @@ public class SBMLImporterTest extends TestCase {
 		Lems lems2 = Utils.readLemsNeuroMLFile(testFile).getLems();
 		lems2.resolve();
 	}
-		
-		
+
+
 
 }
