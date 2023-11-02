@@ -120,6 +120,7 @@ jobs:
 
 
     - name: Run SBML test suite
+      if: ${{ matrix.runs-on == 'ubuntu-latest' }}
       run: |
         git clone https://github.com/sbmlteam/sbml-test-suite.git
 
