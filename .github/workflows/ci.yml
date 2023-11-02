@@ -117,3 +117,13 @@ jobs:
         pwd
         mvn install
         mvn dependency:tree
+
+
+    - name: Run SBML test suite
+      run: |
+        git clone https://github.com/sbmlteam/sbml-test-suite.git
+
+        mvn assembly:assembly -DdescriptorId=jar-with-dependencies"
+        
+        java -Xmx400M -classpath target/*jar-with-dependencies.jar org.neuroml.importer.sbml.SBMLImporter -runSBMLTestSuite
+        

@@ -1209,7 +1209,7 @@ public class SBMLImporter  {
 
 
 
-        File sbmlTestSuiteDir = new File("sbmlTestSuite/cases/semantic/");
+        File sbmlTestSuiteDir = new File("sbml-test-suite/cases/semantic/");
 
         boolean useSbmlTestSuite = sbmlTestSuiteDir.exists() && forceSBMLTestSuite;
 
@@ -1292,7 +1292,7 @@ public class SBMLImporter  {
                     while(testCase.length()<5) testCase ="0"+testCase;
 
 
-                    sbmlFile = new File("sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
+                    sbmlFile = new File("sbml-test-suite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
                     if (!sbmlFile.exists()){
                         E.info("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
                         notFound++;
