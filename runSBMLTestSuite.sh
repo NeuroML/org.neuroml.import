@@ -1,13 +1,12 @@
 #!/bin/bash
 
 
-if [ ! -d "sbmlTestSuite" ]; then
+if [ ! -d "sbml-test-suite" ]; then
 
     echo ""
-    echo "A copy of the SBML Test Suite needs to be checked out from Sourceforge. Try:"
+    echo "A copy of the SBML Test Suite needs to be checked out from GitHub. Try:"
     echo ""
-    echo "    mkdir sbmlTestSuite"
-    echo "    svn checkout https://svn.code.sf.net/p/sbml/code/trunk/test-suite/cases sbmlTestSuite/cases"
+    echo "    git clone https://github.com/sbmlteam/sbml-test-suite.git"
     echo ""
     exit 1
 
