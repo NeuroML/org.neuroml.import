@@ -831,7 +831,7 @@ public class SBMLImporter  {
             E.info(">>>> StateVariable "+sv);
             dyn.stateVariables.add(sv);
 
-            TimeDerivative td = new TimeDerivative(sv.getName(), "1");
+            TimeDerivative td = new TimeDerivative(sv.getName(), timeScale.getName() + "* 1");
             dyn.timeDerivatives.add(td);
         }
 
