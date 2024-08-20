@@ -314,6 +314,11 @@ public class SBMLImporter  {
                         newDim.setN(newDim.getN() + exponent * 1);
                     } else if (kind.equals("second")) {
                         newDim.setT(newDim.getT() + exponent * 1);
+                    } else if (kind.equals("volt")) {
+                        newDim.setM(newDim.getM() + exponent * 1);
+                        newDim.setL(newDim.getL() + exponent * 2);
+                        newDim.setT(newDim.getT() + exponent * -3);
+                        newDim.setI(newDim.getI() + exponent * -1);
                     } else {
                         //TODO: Add all unit kinds from section 4.4.2 in SBML specs: http://sbml.org/Documents/Specifications
                         System.err.print("Add more unit definitions! Missing: "+kind);
@@ -831,7 +836,7 @@ public class SBMLImporter  {
             E.info(">>>> StateVariable "+sv);
             dyn.stateVariables.add(sv);
 
-            TimeDerivative td = new TimeDerivative(sv.getName(), "1");
+            TimeDerivative td = new TimeDerivative(sv.getName(), timeScale.getName() + "* 1");
             dyn.timeDerivatives.add(td);
         }
 
@@ -1209,7 +1214,7 @@ public class SBMLImporter  {
 
 
 
-        File sbmlTestSuiteDir = new File("sbmlTestSuite/cases/semantic/");
+        File sbmlTestSuiteDir = new File("sbml-test-suite/cases/semantic/");
 
         boolean useSbmlTestSuite = sbmlTestSuiteDir.exists() && forceSBMLTestSuite;
 
@@ -1292,7 +1297,7 @@ public class SBMLImporter  {
                     while(testCase.length()<5) testCase ="0"+testCase;
 
 
-                    sbmlFile = new File("sbmlTestSuite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
+                    sbmlFile = new File("sbml-test-suite/cases/semantic/"+testCase+"/"+testCase+"-sbml-"+version+".xml");
                     if (!sbmlFile.exists()){
                         E.info("   ----  File not found: "+sbmlFile.getAbsolutePath()+"!!   ---- \n\n");
                         notFound++;

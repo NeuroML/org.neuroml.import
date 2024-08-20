@@ -4,7 +4,7 @@
     <groupId>org.neuroml.import</groupId>
     <artifactId>org.neuroml.import</artifactId>
     <packaging>jar</packaging>
-    <version>1.9.1</version>
+    <version>1.10.1</version>
     <name>org.neuroml.import</name>
     <url>http://maven.apache.org</url>
     <repositories>
@@ -29,7 +29,7 @@
         <dependency>
             <groupId>org.neuroml.export</groupId>
             <artifactId>org.neuroml.export</artifactId>
-            <version>1.9.1</version>
+            <version>1.10.1</version>
         </dependency>
 
         <dependency>
@@ -71,15 +71,15 @@
                             &lt;br /&gt;
                             &lt;br /&gt;
                     </top>
-                    <bottom>Copyright NeuroML Contributors 2023</bottom>
+                    <bottom>Copyright NeuroML Contributors 2024</bottom>
                 </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.0</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                 </configuration>
             </plugin>
         </plugins>
